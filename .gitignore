@@ -1,0 +1,9 @@
+/out
+/.settings
+/.vscode
+/.idea
+/.classpath
+/.project
+/.cproject
+/.oppbuildspec
+/fog/results
