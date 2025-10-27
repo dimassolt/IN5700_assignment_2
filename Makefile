@@ -1,5 +1,5 @@
 #
-# OMNeT++/OMNEST Makefile for assignment_1
+# OMNeT++/OMNEST Makefile for assignment_2
 #
 # This file was generated with the command:
 #  opp_makemake -f --deep -O out -I.
@@ -7,7 +7,7 @@
 
 # Name of target to be created (-o option)
 TARGET_DIR = .
-TARGET_NAME = assignment_1$(D)
+TARGET_NAME = assignment_2$(D)
 TARGET = $(TARGET_NAME)$(EXE_SUFFIX)
 TARGET_FILES = $(TARGET_DIR)/$(TARGET)
 
@@ -31,11 +31,20 @@ PROJECTRELATIVE_PATH =
 O = $(PROJECT_OUTPUT_DIR)/$(CONFIGNAME)/$(PROJECTRELATIVE_PATH)
 
 # Object files for local .cc, .msg and .sm files
-OBJS = $O/fog/Cloud.o $O/fog/Computer.o $O/fog/messages_m.o
+OBJS = \
+    $O/fog/Cloud.o \
+    $O/fog/Computer.o \
+    $O/garbage_collection/CloudServer.o \
+    $O/garbage_collection/GarbageCan.o \
+    $O/garbage_collection/GarbageCollector.o \
+    $O/garbage_collection/Visualizer.o \
+    $O/fog/messages_m.o \
+    $O/garbage_collection/messages_m.o
 
 # Message files
 MSGFILES = \
-    fog/messages.msg
+    fog/messages.msg \
+    garbage_collection/messages.msg
 
 # SM files
 SMFILES =
