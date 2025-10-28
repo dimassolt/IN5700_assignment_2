@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<movements>
+    <movement id="emptyCans" name="empty cans patrol">
+        <waypoint order="0" role="start" x="1025" y="233" pen="up" speed="180"/>
+        <waypoint order="1" role="can" x="331" y="215" pen="down" wait="0.5"/>
+        <waypoint order="2" role="anotherCan" x="496" y="541" pen="down" wait="0.5"/>
+        <waypoint order="3" role="final" x="1025" y="560" pen="up"/>
+    </movement>
+</movements>

@@ -6,7 +6,7 @@ simple GarbageCan
         bool hasGarbage = default(false);
         int canId = default(0);
         double responseDelay @unit(s) = default(0.1s);
-        @display("i=device/bin");
+        @display("i=block/bucket,,0");
     gates:
         input in;
         output out;

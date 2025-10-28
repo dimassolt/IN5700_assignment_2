@@ -1,8 +1,8 @@
 version 3
-run right-0-20251027-01:37:43-79146
+run right-0-20251028-00:25:41-83078
 attr configname right
-attr datetime 20251027-01:37:43
-attr datetimef 20251027-013743
+attr datetime 20251028-00:25:41
+attr datetimef 20251028-002541
 attr experiment right
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 79146
+attr processid 83078
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -18,13 +18,13 @@ attr runnumber 0
 attr seedset 0
 config extends General
 config description "Collector path starting on the left and finishing on the right"
-config **.host[0].turtleScript "xmldoc(\"turtle.xml\", \"movements/movement[@id='2']\")"
+config **.host[0].moveScript "xmldoc(\"move.xml\", \"movements/movement[@id='2']\")"
 config network garbage_collection.GarbageCollectionSystem
 config sim-time-limit 5s
 config *.can.hasGarbage false
 config *.anotherCan.hasGarbage false
 config **.host[0].moveDuration 0.6s
-config **.host[0].turtleScript "xmldoc(\"turtle.xml\", \"movements/movement[@id='1']\")"
+config **.host[0].moveScript "xmldoc(\"move.xml\", \"movements/movement[@id='1']\")"
 config **.visualizer.initialText "\"\""
 
 par GarbageCollectionSystem.host[0].outCan.channel typename "\"ned.DelayChannel\""
@@ -54,7 +54,7 @@ attr unit s
 par GarbageCollectionSystem.host[0] typename "\"garbage_collection.GarbageCollector\""
 par GarbageCollectionSystem.host[0] moveDuration 0.6s
 attr unit s
-par GarbageCollectionSystem.host[0] turtleScript "<movement id=\"2\" name=\"right\">...</movement> at /Users/dmitrysolt/Desktop/IN5700_ass1/assignment_2/garbage_collection//turtle.xml:9"
+par GarbageCollectionSystem.host[0] turtleScript "<movement/> at content:1"
 par GarbageCollectionSystem.can typename "\"garbage_collection.GarbageCan\""
 par GarbageCollectionSystem.can hasGarbage false
 par GarbageCollectionSystem.can canId 0

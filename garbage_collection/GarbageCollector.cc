@@ -19,27 +19,131 @@ class GarbageCollector : public cSimpleModule {
     cMessage *moveEvent = nullptr;
     std::vector<Point> path;
     enum class MoveStage { None, ToTop, ToBottom, ToFinal };
-    MoveStage pendingStage = MoveStage::None;
+
+    struct MovementState {
+        MoveStage stage = MoveStage::None;
+        bool active = false;
+        size_t fromIndex = 0;
+        size_t toIndex = 0;
+        simtime_t startTime;
+        simtime_t endTime;
+    } movement;
+
     size_t currentIndex = 0;
+    simtime_t moveUpdateInterval;
 
   private:
-    void setPosition(size_t index) {
-        if (index >= path.size())
-            return;
-        const auto &p = path[index];
+    void setPosition(const Point &p) {
         std::string sx = std::to_string(p.x);
         std::string sy = std::to_string(p.y);
         getDisplayString().setTagArg("p", 0, sx.c_str());
         getDisplayString().setTagArg("p", 1, sy.c_str());
     }
 
+    void setPosition(size_t index) {
+        if (index >= path.size())
+            return;
+        setPosition(path[index]);
+    }
+
+    void sendQuery(int canId) {
+        auto *query = new GarbagePacket("garbage-query");
+        query->setCommand("query");
+        query->setCanId(canId);
+        query->setIsFull(false);
+        query->setTravelTime(0);
+        if (canId == 0)
+            send(query, "outCan");
+        else
+            send(query, "outAnotherCan");
+    }
+
+    size_t targetIndexForStage(MoveStage stage) const {
+        switch (stage) {
+            case MoveStage::ToTop:
+                return 1;
+            case MoveStage::ToBottom:
+                return 2;
+            case MoveStage::ToFinal:
+                return 3;
+            case MoveStage::None:
+            default:
+                return currentIndex;
+        }
+    }
+
+    Point interpolate(const Point &from, const Point &to, double fraction) const {
+        fraction = std::clamp(fraction, 0.0, 1.0);
+        return Point{from.x + (to.x - from.x) * fraction,
+                     from.y + (to.y - from.y) * fraction};
+    }
+
+    void startMovement(MoveStage stage, const char *logNote) {
+        if (stage == MoveStage::None)
+            return;
+
+        if (moveEvent->isScheduled())
+            cancelEvent(moveEvent);
+
+        size_t targetIndex = targetIndexForStage(stage);
+        if (targetIndex >= path.size()) {
+            EV_WARN << "Target index out of bounds; skipping movement" << endl;
+            return;
+        }
+
+        movement.stage = stage;
+        movement.active = true;
+        movement.fromIndex = currentIndex;
+        movement.toIndex = targetIndex;
+        movement.startTime = simTime();
+        simtime_t duration = par("moveDuration");
+        movement.endTime = movement.startTime + duration;
+
+        if (logNote && *logNote)
+            EV_INFO << logNote << endl;
+
+        if (duration <= SIMTIME_ZERO) {
+            scheduleAt(simTime(), moveEvent);
+        }
+        else {
+            scheduleAt(simTime(), moveEvent);
+        }
+    }
+
+    void finishMovement() {
+        MoveStage stage = movement.stage;
+        movement.active = false;
+        movement.stage = MoveStage::None;
+        movement.fromIndex = movement.toIndex;
+        currentIndex = movement.toIndex;
+        setPosition(currentIndex);
+
+        switch (stage) {
+            case MoveStage::ToTop:
+                EV_INFO << "Collector stopped at can" << endl;
+                sendQuery(0);
+                break;
+            case MoveStage::ToBottom:
+                EV_INFO << "Collector stopped at anotherCan" << endl;
+                sendQuery(1);
+                break;
+            case MoveStage::ToFinal:
+                EV_INFO << "Collector returning to base" << endl;
+                endSimulation();
+                break;
+            case MoveStage::None:
+                break;
+        }
+    }
+
+  protected:
     void loadPathFromParameter() {
-        static const std::array<Point, 4> fallbackPath{{
-            Point{540, 120},   // start near top-right
-            Point{220, 120},   // first can
-            Point{220, 260},   // another can
-            Point{460, 260}    // final stop in lower corridor
-        }};
+        static const std::array<Point, 4> fallbackPath{ {
+            Point{1025, 233},  // start below visualizer
+            Point{331,  215},  // can
+            Point{496,  541},  // another can
+            Point{1025, 560}   // final stop in lower lane
+        } };
 
         path.assign(fallbackPath.begin(), fallbackPath.end());
 
@@ -103,70 +207,39 @@ class GarbageCollector : public cSimpleModule {
         }
     }
 
-    void sendQuery(int canId) {
-        auto *query = new GarbagePacket("garbage-query");
-        query->setCommand("query");
-        query->setCanId(canId);
-        query->setIsFull(false);
-        query->setTravelTime(0);
-        if (canId == 0)
-            send(query, "outCan");
-        else
-            send(query, "outAnotherCan");
-    }
-
-    void scheduleMove(MoveStage stage, const char *logNote) {
-        if (moveEvent->isScheduled())
-            cancelEvent(moveEvent);
-        pendingStage = stage;
-        if (logNote && *logNote)
-            EV_INFO << logNote << endl;
-        simtime_t delay = par("moveDuration");
-        scheduleAt(simTime() + delay, moveEvent);
-    }
-
-  protected:
-    virtual void initialize() override {
-        startEvent = new cMessage("startEvent");
-        moveEvent = new cMessage("moveEvent");
-
-        loadPathFromParameter();
-        setPosition(0);
-        currentIndex = 0;
-        EV_INFO << "Collector ready – heading to can" << endl;
-        scheduleAt(simTime(), startEvent);
-    }
-
     virtual void handleMessage(cMessage *msg) override {
         if (msg == startEvent) {
-            scheduleMove(MoveStage::ToTop, "Collector moving from right to left");
+            startMovement(MoveStage::ToTop, "Collector moving from right to left");
             return;
         }
 
         if (msg == moveEvent) {
-            switch (pendingStage) {
-                case MoveStage::ToTop:
-                    currentIndex = 1;
-                    setPosition(currentIndex);
-                    EV_INFO << "Collector stopped at can" << endl;
-                    sendQuery(0);
-                    break;
-                case MoveStage::ToBottom:
-                    currentIndex = 2;
-                    setPosition(currentIndex);
-                    EV_INFO << "Collector stopped at anotherCan" << endl;
-                    sendQuery(1);
-                    break;
-                case MoveStage::ToFinal:
-                    currentIndex = 3;
-                    setPosition(currentIndex);
-                    EV_INFO << "Collector returning to base" << endl;
-                    endSimulation();
-                    break;
-                case MoveStage::None:
-                    break;
+            if (!movement.active) {
+                return;
             }
-            pendingStage = MoveStage::None;
+
+            simtime_t now = simTime();
+            simtime_t duration = movement.endTime - movement.startTime;
+            double fraction = duration <= SIMTIME_ZERO ? 1.0 : ((now - movement.startTime) / duration).dbl();
+
+            if (fraction >= 1.0) {
+                finishMovement();
+            }
+            else {
+                const Point &from = path[movement.fromIndex];
+                const Point &to = path[movement.toIndex];
+                Point pos = interpolate(from, to, fraction);
+                setPosition(pos);
+
+                simtime_t interval = moveUpdateInterval;
+                if (interval <= SIMTIME_ZERO)
+                    interval = SimTime(0.05);
+
+                simtime_t next = now + interval;
+                if (next > movement.endTime)
+                    next = movement.endTime;
+                scheduleAt(next, moveEvent);
+            }
             return;
         }
 
@@ -183,13 +256,29 @@ class GarbageCollector : public cSimpleModule {
                 EV_INFO << "Can " << canId << " is empty" << endl;
 
             if (canId == 0) {
-                scheduleMove(MoveStage::ToBottom, "Collector sliding down to anotherCan");
+                startMovement(MoveStage::ToBottom, "Collector sliding down to anotherCan");
             }
             else if (canId == 1) {
-                scheduleMove(MoveStage::ToFinal, "Collector moving back to the right");
+                startMovement(MoveStage::ToFinal, "Collector moving back to the right");
             }
         }
         delete pkt;
+    }
+
+    virtual void initialize() override {
+        startEvent = new cMessage("startEvent");
+        moveEvent = new cMessage("moveEvent");
+
+        loadPathFromParameter();
+        setPosition(0);
+        currentIndex = 0;
+
+        moveUpdateInterval = par("moveUpdateInterval");
+        if (moveUpdateInterval <= SIMTIME_ZERO)
+            moveUpdateInterval = SimTime(0.05);
+
+        EV_INFO << "Collector ready – heading to can" << endl;
+        scheduleAt(simTime(), startEvent);
     }
 
     virtual ~GarbageCollector() {
