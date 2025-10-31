@@ -4,6 +4,7 @@ import garbage_collection.GarbageCollector;
 import garbage_collection.GarbageCan;
 import garbage_collection.CloudServer;
 import garbage_collection.GarbageVisualizer;
+import ned.DelayChannel;
 import ned.IBidirectionalChannel;
 import ned.IUnidirectionalChannel;
 import ned.IdealChannel;
@@ -53,8 +54,8 @@ network GarbageCollectionSystem
     submodules:
         host[1]: GarbageCollector {
             parameters:
-                moveDuration = 0.6s;
-                @display("p=1025,233;i=device/pocketpc;r=180");
+                moveDuration = 0s;
+                @display("p=1025,320;i=device/pocketpc;r=180");
         }
         can: GarbageCan {
             parameters:
@@ -84,6 +85,6 @@ network GarbageCollectionSystem
         can.out --> {  delay = parent.canDelay; } --> host[0].inCan;
         host[0].outAnotherCan --> {  delay = parent.canDelay; } --> anotherCan.in;
         anotherCan.out --> {  delay = parent.canDelay; } --> host[0].inAnotherCan;
-    //    host[0].outCloud --> {  delay = parent.cloudDelay; } --> cloud.in;
-      //  cloud.out --> {  delay = parent.cloudDelay; } --> host[0].inCloud;
+    	host[0].outCloud --> {  delay = parent.cloudDelay; } --> cloud.in;
+      	cloud.out --> {  delay = parent.cloudDelay; } --> host[0].inCloud;
 }

@@ -1,8 +1,8 @@
 version 3
-run EmptyCans-0-20251028-02:58:06-11664
+run EmptyCans-0-20251031-13:31:34-94349
 attr configname EmptyCans
-attr datetime 20251028-02:58:06
-attr datetimef 20251028-025806
+attr datetime 20251031-13:31:34
+attr datetimef 20251031-133134
 attr experiment EmptyCans
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 11664
+attr processid 94349
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -18,12 +18,12 @@ attr runnumber 0
 attr seedset 0
 config description "Collector patrol when both garbage cans are empty"
 config network garbage_collection.GarbageCollectionSystem
-config sim-time-limit 5s
+config sim-time-limit 17.9s
 config *.can.hasGarbage false
 config *.anotherCan.hasGarbage false
-config **.host[0].moveDuration 5s
-config **.host[0].turtleScript "xmldoc(\"move.xml\", \"movements/movement[@id='emptyCans']\")"
-config **.visualizer.initialText "\"\""
+config **.host[0].moveDuration 1s
+config **.host[0].turtleScript "xmldoc(\"turtle.xml\", \"movements/movement[@id='emptyCans']\")"
+config **.visualizer.initialText "\"Rectangular turtle patrol\""
 
 par GarbageCollectionSystem.host[0].outCan.channel typename "\"ned.DelayChannel\""
 par GarbageCollectionSystem.host[0].outCan.channel disabled false
@@ -50,11 +50,11 @@ par GarbageCollectionSystem.anotherCan.out.channel delay 0.1s
 attr mutable ""
 attr unit s
 par GarbageCollectionSystem.host[0] typename "\"garbage_collection.GarbageCollector\""
-par GarbageCollectionSystem.host[0] moveDuration 0.6s
+par GarbageCollectionSystem.host[0] moveDuration 0s
 attr unit s
 par GarbageCollectionSystem.host[0] moveUpdateInterval 0.05s
 attr unit s
-par GarbageCollectionSystem.host[0] turtleScript "<movement id=\"emptyCans\" name=\"empty cans patrol\">...</movement> at /Users/dmitrysolt/Desktop/IN5700_ass1/assignment_2/garbage_collection//move.xml:3"
+par GarbageCollectionSystem.host[0] turtleScript "<movement id=\"emptyCans\" name=\"rectangular patrol\">...</movement> at /Users/dmitrysolt/Desktop/IN5700_ass1/assignment_2/garbage_collection//turtle.xml:3"
 par GarbageCollectionSystem.can typename "\"garbage_collection.GarbageCan\""
 par GarbageCollectionSystem.can hasGarbage false
 par GarbageCollectionSystem.can canId 0
@@ -69,7 +69,7 @@ par GarbageCollectionSystem.cloud typename "\"garbage_collection.CloudServer\""
 par GarbageCollectionSystem.cloud ackDelay 0.2s
 attr unit s
 par GarbageCollectionSystem.visualizer typename "\"garbage_collection.GarbageVisualizer\""
-par GarbageCollectionSystem.visualizer initialText "\"\""
+par GarbageCollectionSystem.visualizer initialText "\"Rectangular turtle patrol\""
 par GarbageCollectionSystem typename "\"garbage_collection.GarbageCollectionSystem\""
 par GarbageCollectionSystem canDelay 0.1s
 attr unit s
