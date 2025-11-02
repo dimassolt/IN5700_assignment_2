@@ -55,10 +55,10 @@ network GarbageCollectionSystem
         @figure[cloudFastOutValue](type=text; pos=1800,370; text=""; font="Arial,18");
     @figure[cloudFastInLabel](type=text; pos=1450,390; text="Fast connection from others to the Cloud (time it takes) ="; font="Arial,18");
     @figure[cloudFastInValue](type=text; pos=1800,390; text=""; font="Arial,18");
-    @figure[hostCounters](type=text; pos=1025,230; text="GarbageCollector\nsentHostFast: 0\nrcvdHostFast: 0\nsentHostSlow: 0\nrcvdHostSlow: 0"; font="Arial,18"; color=#0000ff; anchor=c);
-    @figure[canCounters](type=text; pos=331,40; text="Can\nsentCanFast: 0\nrcvdCanFast: 0\nnumberOfLostCanMsgs: 0"; font="Arial,18"; color=#0000ff; anchor=c);
-    @figure[anotherCanCounters](type=text; pos=496,470; text="AnotherCan\nsentAnotherCanFast: 0\nrcvdAnotherCanFast: 0\nnumberOfLostAnotherCanMsgs: 0"; font="Arial,18"; color=#0000ff; anchor=c);
-    @figure[cloudCounters](type=text; pos=1283,260; text="Cloud\nsentCloudFast: 0\nrcvdCloudFast: 0\nsentCloudSlow: 0\nrcvdCloudSlow: 0"; font="Arial,18"; color=#0000ff; anchor=c);
+    @figure[hostCounters](type=text; pos=1025,230; text="GarbageCollector sentHostFast: 0 rcvdHostFast: 0 sentHostSlow: 0 rcvdHostSlow: 0"; font="Arial,18"; color=#0000ff; anchor=c);
+    @figure[canCounters](type=text; pos=331,40; text="Can sentCanFast: 0 rcvdCanFast: 0 numberOfLostCanMsgs: 0"; font="Arial,18"; color=#0000ff; anchor=c);
+    @figure[anotherCanCounters](type=text; pos=496,470; text="AnotherCan sentAnotherCanFast: 0 rcvdAnotherCanFast: 0 numberOfLostAnotherCanMsgs: 0"; font="Arial,18"; color=#0000ff; anchor=c);
+    @figure[cloudCounters](type=text; pos=1283,260; text="Cloud sentCloudFast: 0 rcvdCloudFast: 0 sentCloudSlow: 0 rcvdCloudSlow: 0"; font="Arial,18"; color=#0000ff; anchor=c);
 
     types:
     submodules:
