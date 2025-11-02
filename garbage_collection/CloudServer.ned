@@ -6,6 +6,8 @@ simple CloudServer
         double ackDelay @unit(s) = default(0.2s);
         @display("i=misc/cloud_l");
     gates:
-        input in;
-        output out;
+        input inHost;
+        output outHost;
+        input inCan[2];
+        output outCan[2];
 }
