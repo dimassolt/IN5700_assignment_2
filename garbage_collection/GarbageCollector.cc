@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <functional>
 #include <sstream>
 #include <string>
 #include "messages_m.h"
@@ -10,6 +11,33 @@ using namespace omnetpp;
 using namespace garbage_collection;
 
 namespace {
+cTextFigure *requireTextFigure(cModule *module, const char *name)
+{
+    if (!module)
+        throw cRuntimeError("Null module while searching for figure '%s'", name);
+
+    cCanvas *canvas = module->getParentModule()->getCanvas();
+    if (!canvas)
+        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'", module->getFullPath().c_str(), name);
+
+    std::function<cTextFigure *(cFigure *)> search = [&](cFigure *figure) -> cTextFigure * {
+        if (!figure)
+            return nullptr;
+        if (strcmp(figure->getName(), name) == 0)
+            return dynamic_cast<cTextFigure *>(figure);
+        for (int i = 0; i < figure->getNumFigures(); ++i) {
+            if (auto *child = search(figure->getFigure(i)))
+                return child;
+        }
+        return nullptr;
+    };
+
+    if (auto *result = search(canvas->getRootFigure()))
+        return result;
+
+    throw cRuntimeError("%s: unable to locate text figure '%s'", module->getFullPath().c_str(), name);
+}
+
 const char *kQueryCommandFor(int canId)
 {
     return canId == 0 ? "1-Is the can full?" : "4-Is the can full?";
@@ -52,19 +80,32 @@ class GarbageCollector : public cSimpleModule {
 
     cTextFigure *counterFigure = nullptr;
 
+    std::string formatStatusText() const
+    {
+        const long lostFast = sentHostFast > rcvdHostFast ? (sentHostFast - rcvdHostFast) : 0;
+        const long lostSlow = sentHostSlow > rcvdHostSlow ? (sentHostSlow - rcvdHostSlow) : 0;
+
+        std::ostringstream oss;
+        oss << "GarbageCollector\n"
+            << "Fast -> sent: " << sentHostFast
+            << ", received: " << rcvdHostFast
+            << ", lost: " << lostFast << "\n"
+            << "Slow -> sent: " << sentHostSlow
+            << ", received: " << rcvdHostSlow
+            << ", lost: " << lostSlow;
+        return oss.str();
+    }
+
     void updateHostCountersFigure()
     {
         if (!counterFigure)
             return;
 
-        std::ostringstream oss;
-        oss << "GarbageCollector\n"
-            << "sentHostFast: " << sentHostFast << "\n"
-            << "rcvdHostFast: " << rcvdHostFast << "\n"
-            << "sentHostSlow: " << sentHostSlow << "\n"
-            << "rcvdHostSlow: " << rcvdHostSlow;
-        counterFigure->setText(oss.str().c_str());
+        counterFigure->setVisible(true);
+        const std::string text = formatStatusText();
+        counterFigure->setText(text.c_str());
     }
+
 
     void recordHostFastSend()
     {
@@ -231,7 +272,7 @@ class GarbageCollector : public cSimpleModule {
         hostSendsCollect = par("hostSendsCollect");
         expectCloudAck = par("expectCloudAck");
 
-        counterFigure = dynamic_cast<cTextFigure *>(getParentModule()->getCanvas()->getFigure("hostCounters"));
+        counterFigure = requireTextFigure(this, "hostCounters");
         updateHostCountersFigure();
 
         startEvent = new cMessage("startEvent");
@@ -283,6 +324,11 @@ class GarbageCollector : public cSimpleModule {
             if (awaiting)
                 EV_WARN << "Collector finished without receiving all cloud acknowledgements" << endl;
         }
+    }
+
+    void refreshDisplay() const override
+    {
+        const_cast<GarbageCollector *>(this)->updateHostCountersFigure();
     }
 
     ~GarbageCollector() override

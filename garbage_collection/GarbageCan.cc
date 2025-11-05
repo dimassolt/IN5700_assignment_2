@@ -1,5 +1,6 @@
 #include <omnetpp.h>
 #include <cstring>
+#include <functional>
 #include <sstream>
 #include <string>
 #include "messages_m.h"
@@ -8,6 +9,33 @@ using namespace omnetpp;
 using namespace garbage_collection;
 
 namespace {
+cTextFigure *requireTextFigure(cModule *module, const char *name)
+{
+    if (!module)
+        throw cRuntimeError("Null module while searching for figure '%s'", name);
+
+    cCanvas *canvas = module->getParentModule()->getCanvas();
+    if (!canvas)
+        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'", module->getFullPath().c_str(), name);
+
+    std::function<cTextFigure *(cFigure *)> search = [&](cFigure *figure) -> cTextFigure * {
+        if (!figure)
+            return nullptr;
+        if (strcmp(figure->getName(), name) == 0)
+            return dynamic_cast<cTextFigure *>(figure);
+        for (int i = 0; i < figure->getNumFigures(); ++i) {
+            if (auto *child = search(figure->getFigure(i)))
+                return child;
+        }
+        return nullptr;
+    };
+
+    if (auto *result = search(canvas->getRootFigure()))
+        return result;
+
+    throw cRuntimeError("%s: unable to locate text figure '%s'", module->getFullPath().c_str(), name);
+}
+
 const char *kStatusCommandFor(int canId, bool isFull)
 {
     if (canId == 0)
@@ -41,6 +69,17 @@ class GarbageCan : public cSimpleModule {
     cTextFigure *counterFigure = nullptr;
     const char *counterLabel = "Can";
 
+    std::string formatStatusText() const
+    {
+        std::ostringstream oss;
+        oss << counterLabel << "\n"
+            << "Fast -> sent: " << sentFastCount
+            << ", received: " << rcvdFastCount
+            << ", lost: " << lostFastCount << "\n"
+            << "Slow -> sent: 0, received: 0, lost: 0";
+        return oss.str();
+    }
+
     bool isQueryCommand(const char *command) const
     {
         return strcmp(command, "1-Is the can full?") == 0 || strcmp(command, "4-Is the can full?") == 0;
@@ -69,12 +108,9 @@ class GarbageCan : public cSimpleModule {
         if (!counterFigure)
             return;
 
-        std::ostringstream oss;
-        oss << counterLabel << "\n"
-            << "sent" << counterLabel << "Fast: " << sentFastCount << "\n"
-            << "rcvd" << counterLabel << "Fast: " << rcvdFastCount << "\n"
-            << "numberOfLost" << counterLabel << "Msgs: " << lostFastCount;
-        counterFigure->setText(oss.str().c_str());
+        counterFigure->setVisible(true);
+        const std::string text = formatStatusText();
+        counterFigure->setText(text.c_str());
     }
 
     void dispatchStatus()
@@ -125,7 +161,7 @@ class GarbageCan : public cSimpleModule {
         lostQueryCount = par("lostQueryCount");
         collectDispatchDelay = par("collectDispatchDelay");
 
-        counterFigure = dynamic_cast<cTextFigure *>(getParentModule()->getCanvas()->getFigure(canId == 0 ? "canCounters" : "anotherCanCounters"));
+        counterFigure = requireTextFigure(this, canId == 0 ? "canCounters" : "anotherCanCounters");
         counterLabel = (canId == 0) ? "Can" : "AnotherCan";
         updateCounterFigure();
     }
@@ -165,6 +201,11 @@ class GarbageCan : public cSimpleModule {
         }
 
         delete pkt;
+    }
+
+    void refreshDisplay() const override
+    {
+        const_cast<GarbageCan *>(this)->updateCounterFigure();
     }
 };
 Define_Module(GarbageCan);

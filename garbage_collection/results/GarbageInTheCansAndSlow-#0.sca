@@ -1,8 +1,8 @@
 version 3
-run GarbageInTheCansAndSlow-0-20251102-03:19:42-42206
+run GarbageInTheCansAndSlow-0-20251105-23:48:57-11746
 attr configname GarbageInTheCansAndSlow
-attr datetime 20251102-03:19:42
-attr datetimef 20251102-031942
+attr datetime 20251105-23:48:57
+attr datetimef 20251105-234857
 attr experiment GarbageInTheCansAndSlow
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 42206
+attr processid 11746
 attr repetition 0
 attr replication #0
 attr resultdir results

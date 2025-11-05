@@ -1,5 +1,6 @@
 #include <omnetpp.h>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <sstream>
 #include <string>
@@ -9,6 +10,33 @@ using namespace omnetpp;
 using namespace garbage_collection;
 
 namespace {
+cTextFigure *requireTextFigure(cModule *module, const char *name)
+{
+    if (!module)
+        throw cRuntimeError("Null module while searching for figure '%s'", name);
+
+    cCanvas *canvas = module->getParentModule()->getCanvas();
+    if (!canvas)
+        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'", module->getFullPath().c_str(), name);
+
+    std::function<cTextFigure *(cFigure *)> search = [&](cFigure *figure) -> cTextFigure * {
+        if (!figure)
+            return nullptr;
+        if (strcmp(figure->getName(), name) == 0)
+            return dynamic_cast<cTextFigure *>(figure);
+        for (int i = 0; i < figure->getNumFigures(); ++i) {
+            if (auto *child = search(figure->getFigure(i)))
+                return child;
+        }
+        return nullptr;
+    };
+
+    if (auto *result = search(canvas->getRootFigure()))
+        return result;
+
+    throw cRuntimeError("%s: unable to locate text figure '%s'", module->getFullPath().c_str(), name);
+}
+
 const char *kCollectAckCommandFor(int canId)
 {
     return canId == 0 ? "8-OK" : "10-OK";
@@ -25,9 +53,24 @@ class CloudServer : public cSimpleModule {
     long rcvdFastCount = 0;
     long sentSlowCount = 0;
     long rcvdSlowCount = 0;
+    long lostFastCount = 0;
+    long lostSlowCount = 0;
 
     cTextFigure *counterFigure = nullptr;
     bool displayCounters = true;
+
+    std::string formatStatusText() const
+    {
+        std::ostringstream oss;
+        oss << "Cloud\n"
+            << "Fast -> sent: " << sentFastCount
+            << ", received: " << rcvdFastCount
+            << ", lost: " << lostFastCount << "\n"
+            << "Slow -> sent: " << sentSlowCount
+            << ", received: " << rcvdSlowCount
+            << ", lost: " << lostSlowCount;
+        return oss.str();
+    }
 
     static bool moduleHasFastCloudTraffic(cModule *module)
     {
@@ -51,16 +94,15 @@ class CloudServer : public cSimpleModule {
 
     void updateCounterFigure()
     {
-        if (!counterFigure || !displayCounters)
+        if (!counterFigure)
             return;
 
-        std::ostringstream oss;
-        oss << "Cloud\n"
-            << "sentCloudFast: " << sentFastCount << "\n"
-            << "rcvdCloudFast: " << rcvdFastCount << "\n"
-            << "sentCloudSlow: " << sentSlowCount << "\n"
-            << "rcvdCloudSlow: " << rcvdSlowCount;
-        counterFigure->setText(oss.str().c_str());
+        counterFigure->setVisible(displayCounters);
+        if (!displayCounters)
+            return;
+
+        const std::string text = formatStatusText();
+        counterFigure->setText(text.c_str());
     }
 
     void recordFastSend()
@@ -87,39 +129,62 @@ class CloudServer : public cSimpleModule {
         updateCounterFigure();
     }
 
+    void recordLostFast()
+    {
+        ++lostFastCount;
+        updateCounterFigure();
+    }
+
+    void recordLostSlow()
+    {
+        ++lostSlowCount;
+        updateCounterFigure();
+    }
+
     void sendAck(GarbagePacket *ack, cGate *arrivalGate)
     {
-        if (arrivalGate) {
-            const char *baseName = arrivalGate->getBaseName();
-            if (strcmp(baseName, "inHost") == 0 && gate("outHost")->isConnected()) {
-                recordSlowSend();
-                sendDelayed(ack, ackDelay, "outHost");
-                return;
-            }
-            if (strcmp(baseName, "inCan") == 0) {
-                int index = arrivalGate->getIndex();
-                if (index >= 0 && index < gateSize("outCan") && gate("outCan", index)->isConnected()) {
-                    recordFastSend();
-                    sendDelayed(ack, ackDelay, "outCan", index);
-                    return;
-                }
-            }
-        }
+        const bool arrivedFromHost = arrivalGate && strcmp(arrivalGate->getBaseName(), "inHost") == 0;
+        const bool arrivedFromCan = arrivalGate && strcmp(arrivalGate->getBaseName(), "inCan") == 0;
 
-        if (gate("outHost")->isConnected()) {
+        auto trySendSlow = [&]() -> bool {
+            if (!gate("outHost")->isConnected())
+                return false;
             recordSlowSend();
             sendDelayed(ack, ackDelay, "outHost");
-            return;
-        }
-        for (int i = 0; i < gateSize("outCan"); ++i) {
-            if (gate("outCan", i)->isConnected()) {
-                recordFastSend();
-                sendDelayed(ack, ackDelay, "outCan", i);
-                return;
-            }
+            return true;
+        };
+
+        auto trySendFastToIndex = [&](int index) -> bool {
+            if (index < 0 || index >= gateSize("outCan") || !gate("outCan", index)->isConnected())
+                return false;
+            recordFastSend();
+            sendDelayed(ack, ackDelay, "outCan", index);
+            return true;
+        };
+
+        bool delivered = false;
+
+        if (arrivedFromHost)
+            delivered = trySendSlow();
+
+        if (!delivered && arrivedFromCan)
+            delivered = trySendFastToIndex(arrivalGate->getIndex());
+
+        if (!delivered)
+            delivered = trySendSlow();
+
+        if (!delivered) {
+            for (int i = 0; i < gateSize("outCan") && !delivered; ++i)
+                delivered = trySendFastToIndex(i);
         }
 
-        delete ack;
+        if (!delivered) {
+            if (arrivedFromHost)
+                recordLostSlow();
+            else
+                recordLostFast();
+            delete ack;
+        }
     }
 
     bool isStatusCommand(const char *command) const
@@ -137,7 +202,7 @@ class CloudServer : public cSimpleModule {
     void initialize() override
     {
         ackDelay = par("ackDelay");
-        counterFigure = dynamic_cast<cTextFigure *>(getParentModule()->getCanvas()->getFigure("cloudCounters"));
+        counterFigure = requireTextFigure(this, "cloudCounters");
         displayCounters = shouldDisplayCounters();
         if (counterFigure) {
             counterFigure->setVisible(displayCounters);
@@ -186,6 +251,11 @@ class CloudServer : public cSimpleModule {
         }
 
         delete pkt;
+    }
+
+    void refreshDisplay() const override
+    {
+        const_cast<CloudServer *>(this)->updateCounterFigure();
     }
 };
 Define_Module(CloudServer);
