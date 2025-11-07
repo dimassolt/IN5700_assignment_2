@@ -1,6 +1,6 @@
 # Smart Garbage Collection — OMNeT++ Assignment
 
-This repository bundles the deliverables for the IN5700 Assignment 2. It contains two OMNeT++ models:
+This repository bundles the deliverables for the IN5700 Assignment 2:
 
 * `garbage_collection/` — the smart garbage collection scenario with multiple configurations (main submission)
 
