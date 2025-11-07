@@ -31,19 +31,10 @@ PROJECTRELATIVE_PATH =
 O = $(PROJECT_OUTPUT_DIR)/$(CONFIGNAME)/$(PROJECTRELATIVE_PATH)
 
 # Object files for local .cc, .msg and .sm files
-OBJS = \
-    $O/fog/Cloud.o \
-    $O/fog/Computer.o \
-    $O/garbage_collection/CloudServer.o \
-    $O/garbage_collection/GarbageCan.o \
-    $O/garbage_collection/GarbageCollector.o \
-    $O/garbage_collection/Visualizer.o \
-    $O/fog/messages_m.o \
-    $O/garbage_collection/messages_m.o
+OBJS = $O/garbage_collection/CloudServer.o $O/garbage_collection/GarbageCan.o $O/garbage_collection/GarbageCollector.o $O/garbage_collection/Visualizer.o $O/garbage_collection/messages_m.o
 
 # Message files
 MSGFILES = \
-    fog/messages.msg \
     garbage_collection/messages.msg
 
 # SM files

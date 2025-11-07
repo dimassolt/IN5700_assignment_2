@@ -1,8 +1,8 @@
 version 3
-run NoGarbageInTheCans-0-20251107-15:36:43-27349
+run NoGarbageInTheCans-0-20251107-15:58:16-32898
 attr configname NoGarbageInTheCans
-attr datetime 20251107-15:36:43
-attr datetimef 20251107-153643
+attr datetime 20251107-15:58:16
+attr datetimef 20251107-155816
 attr experiment NoGarbageInTheCans
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 27349
+attr processid 32898
 attr repetition 0
 attr replication #0
 attr resultdir results
