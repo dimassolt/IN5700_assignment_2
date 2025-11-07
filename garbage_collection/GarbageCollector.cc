@@ -3,6 +3,7 @@
 #include <array>
 #include <cstring>
 #include <functional>
+#include <map>
 #include <sstream>
 #include <string>
 #include "messages_m.h"
@@ -53,6 +54,28 @@ const char *kCollectAckCommandFor(int canId)
     return canId == 0 ? "8-OK" : "10-OK";
 }
 
+void incrementParentCounter(cModule *module, const char *parName)
+{
+    if (!module)
+        return;
+    if (cModule *parent = module->getParentModule()) {
+        if (parent->hasPar(parName)) {
+            const int current = parent->par(parName).intValue();
+            parent->par(parName).setIntValue(current + 1);
+        }
+    }
+}
+
+void setParentIntParameter(cModule *module, const char *parName, int value)
+{
+    if (!module)
+        return;
+    if (cModule *parent = module->getParentModule()) {
+        if (parent->hasPar(parName))
+            parent->par(parName).setIntValue(value);
+    }
+}
+
 }
 
 class GarbageCollector : public cSimpleModule {
@@ -78,21 +101,55 @@ class GarbageCollector : public cSimpleModule {
     long sentHostSlow = 0;
     long rcvdHostSlow = 0;
 
+    std::map<std::string, long> sentFastMessages;
+    std::map<std::string, long> receivedFastMessages;
+    std::map<std::string, long> sentSlowMessages;
+    std::map<std::string, long> receivedSlowMessages;
+
     cTextFigure *counterFigure = nullptr;
+
+    static void noteMessage(std::map<std::string, long> &bucket, const char *command)
+    {
+        const char *label = (command && *command) ? command : "<unknown>";
+        bucket[label]++;
+    }
+
+    static std::string describeMessages(const std::map<std::string, long> &bucket, const std::map<std::string, long> *counterpart = nullptr)
+    {
+        if (bucket.empty())
+            return "  none";
+
+        std::ostringstream oss;
+        for (auto it = bucket.begin(); it != bucket.end(); ++it) {
+            const std::string &command = it->first;
+            const long count = it->second;
+            long other = 0;
+            if (counterpart) {
+                auto found = counterpart->find(command);
+                if (found != counterpart->end())
+                    other = found->second;
+            }
+            const long diff = counterpart ? (count - other) : 0;
+            if (it != bucket.begin())
+                oss << "\n";
+            oss << "  " << command << " x" << count;
+            if (counterpart) {
+                if (other > 0)
+                    oss << " (matched " << other << ")";
+                if (diff > 0)
+                    oss << " (pending " << diff << ")";
+            }
+        }
+        return oss.str();
+    }
 
     std::string formatStatusText() const
     {
-        const long lostFast = sentHostFast > rcvdHostFast ? (sentHostFast - rcvdHostFast) : 0;
-        const long lostSlow = sentHostSlow > rcvdHostSlow ? (sentHostSlow - rcvdHostSlow) : 0;
-
         std::ostringstream oss;
-        oss << "GarbageCollector\n"
-            << "Fast -> sent: " << sentHostFast
-            << ", received: " << rcvdHostFast
-            << ", lost: " << lostFast << "\n"
-            << "Slow -> sent: " << sentHostSlow
-            << ", received: " << rcvdHostSlow
-            << ", lost: " << lostSlow;
+        oss << "sentHostFast: " << sentHostFast
+            << " rcvdHostFast: " << rcvdHostFast
+            << " sentHostSlow: " << sentHostSlow
+            << " rcvdHostSlow: " << rcvdHostSlow;
         return oss.str();
     }
 
@@ -104,30 +161,38 @@ class GarbageCollector : public cSimpleModule {
         counterFigure->setVisible(true);
         const std::string text = formatStatusText();
         counterFigure->setText(text.c_str());
+        if (cModule *parent = getParentModule()) {
+            if (parent->hasPar("hostCountersText"))
+                parent->par("hostCountersText").setStringValue(text.c_str());
+        }
     }
 
 
-    void recordHostFastSend()
+    void recordHostFastSend(const char *command)
     {
         ++sentHostFast;
+        noteMessage(sentFastMessages, command);
         updateHostCountersFigure();
     }
 
-    void recordHostFastReceive()
+    void recordHostFastReceive(const char *command)
     {
         ++rcvdHostFast;
+        noteMessage(receivedFastMessages, command);
         updateHostCountersFigure();
     }
 
-    void recordHostSlowSend()
+    void recordHostSlowSend(const char *command)
     {
         ++sentHostSlow;
+        noteMessage(sentSlowMessages, command);
         updateHostCountersFigure();
     }
 
-    void recordHostSlowReceive()
+    void recordHostSlowReceive(const char *command)
     {
         ++rcvdHostSlow;
+        noteMessage(receivedSlowMessages, command);
         updateHostCountersFigure();
     }
 
@@ -170,11 +235,11 @@ class GarbageCollector : public cSimpleModule {
         query->setNote(attemptNote.c_str());
 
         if (canId == 0) {
-            recordHostFastSend();
+            recordHostFastSend(query->getCommand());
             send(query, "outCan");
         }
         else {
-            recordHostFastSend();
+            recordHostFastSend(query->getCommand());
             send(query, "outAnotherCan");
         }
 
@@ -242,8 +307,9 @@ class GarbageCollector : public cSimpleModule {
         collect->setIsFull(true);
         collect->setTravelTime(0);
         collect->setNote(communicationMode.c_str());
-        recordHostSlowSend();
+        recordHostSlowSend(collect->getCommand());
         send(collect, "outCloud");
+    incrementParentCounter(this, "hostCollectCount");
         EV_INFO << "Sent collect request for can " << canId << " to the cloud" << endl;
 
         if (expectCloudAck)
@@ -261,6 +327,7 @@ class GarbageCollector : public cSimpleModule {
         awaitingCollectAck[canId] = false;
         EV_INFO << "Cloud acknowledgement received for can " << canId
                 << ": " << (pkt->getNote() ? pkt->getNote() : "") << endl;
+    incrementParentCounter(this, "hostCollectAckCount");
     }
 
   protected:
@@ -271,6 +338,23 @@ class GarbageCollector : public cSimpleModule {
         maxQueryAttempts = par("maxQueryAttempts");
         hostSendsCollect = par("hostSendsCollect");
         expectCloudAck = par("expectCloudAck");
+
+        if (communicationMode == "GarbageInTheCansAndSlow") {
+            hostSendsCollect = true;
+            expectCloudAck = true;
+        }
+        else if (communicationMode == "GarbageInTheCansAndFast") {
+            hostSendsCollect = false;
+            expectCloudAck = false;
+        }
+
+        if (hasPar("reportToCloud")) {
+            const bool legacyReportToCloud = par("reportToCloud");
+            if (legacyReportToCloud && !hostSendsCollect) {
+                EV_WARN << "Legacy parameter reportToCloud=true detected; enabling hostSendsCollect for backward compatibility" << endl;
+                hostSendsCollect = true;
+            }
+        }
 
         counterFigure = requireTextFigure(this, "hostCounters");
         updateHostCountersFigure();
@@ -297,14 +381,14 @@ class GarbageCollector : public cSimpleModule {
         }
 
         auto *pkt = check_and_cast<GarbagePacket *>(msg);
+        const std::string command = pkt->getCommand();
         if (cGate *arrivalGate = pkt->getArrivalGate()) {
             const char *base = arrivalGate->getBaseName();
             if (strcmp(base, "inCan") == 0 || strcmp(base, "inAnotherCan") == 0)
-                recordHostFastReceive();
+                recordHostFastReceive(command.c_str());
             else if (strcmp(base, "inCloud") == 0)
-                recordHostSlowReceive();
+                recordHostSlowReceive(command.c_str());
         }
-        const std::string command = pkt->getCommand();
 
         if (command == "2-NO" || command == "3-YES" || command == "5-NO" || command == "6-YES") {
             handleStatus(pkt);
@@ -324,6 +408,9 @@ class GarbageCollector : public cSimpleModule {
             if (awaiting)
                 EV_WARN << "Collector finished without receiving all cloud acknowledgements" << endl;
         }
+
+        setParentIntParameter(this, "hostCan0Attempts", attemptCounters[0]);
+        setParentIntParameter(this, "hostCan1Attempts", attemptCounters[1]);
     }
 
     void refreshDisplay() const override

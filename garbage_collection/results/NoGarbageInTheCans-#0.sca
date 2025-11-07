@@ -1,36 +1,26 @@
 version 3
-run GarbageInTheCansAndFast-0-20251102-02:20:19-28169
-attr configname GarbageInTheCansAndFast
-attr datetime 20251102-02:20:19
-attr datetimef 20251102-022019
-attr experiment GarbageInTheCansAndFast
+run NoGarbageInTheCans-0-20251107-03:41:02-34229
+attr configname NoGarbageInTheCans
+attr datetime 20251107-03:41:02
+attr datetimef 20251107-034102
+attr experiment NoGarbageInTheCans
 attr inifile omnetpp.ini
 attr iterationvars ""
 attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 28169
+attr processid 34229
 attr repetition 0
 attr replication #0
 attr resultdir results
 attr runnumber 0
 attr seedset 0
-config description "Fog-based solution with cans reporting directly to fast cloud links"
-config extends NoGarbageInTheCans
-config *.can.hasGarbage true
-config *.anotherCan.hasGarbage true
-config *.connectCansToCloud true
-config *.connectHostToCloud true
-config *.canToCloudDelay 0.12s
-config *.cloudToCanDelay 0.12s
-config *.cloud.ackDelay 0.12s
-config *.can.sendCollectToCloud true
-config *.anotherCan.sendCollectToCloud true
 config description "No garbage solution: both cans empty, no cloud interaction"
+config *.scenarioTitle "\"No garbage solution\""
 config network garbage_collection.GarbageCollectionSystem
 config sim-time-limit 17.9s
-config *.communicationMode "\"GarbageInTheCansAndFast\""
+config *.communicationMode "\"NoGarbageInTheCans\""
 config *.canDelay 0.2s
 config *.hostToCloudDelay 0.6s
 config *.cloudToHostDelay 0.6s
@@ -50,15 +40,25 @@ config *.can.collectDispatchDelay 0.05s
 config *.anotherCan.collectDispatchDelay 0.05s
 config *.connectHostToCloud true
 config *.connectCansToCloud true
-config *.cloud.ackDelay 0.6s
+config *.cloudAckDelay 0.6s
 config *.host[0].queryRetryInterval 0.45s
 config *.host[0].maxQueryAttempts 4
-config *.host[0].reportToCloud false
 config *.host[0].hostSendsCollect false
 config *.host[0].expectCloudAck false
-config **.host[0].moveDuration 1s
-config **.host[0].turtleScript "xmldoc(\"turtle.xml\", \"movements/movement[@id='emptyCans']\")"
-config **.visualizer.initialText "\"Rectangular turtle patrol\""
+config *.scenarioTitle "\"No garbage solution\""
+config **.visualizer.initialText "\"\""
+config *.smartSlowOutResult 0
+config *.smartSlowInResult 0
+config *.smartFastOutResult 800
+config *.smartFastInResult 200
+config *.canOutResult 100
+config *.canInResult 100
+config *.anotherCanOutResult 100
+config *.anotherCanInResult 100
+config *.cloudSlowOutResult 0
+config *.cloudSlowInResult 0
+config *.cloudFastOutResult 0
+config *.cloudFastInResult 0
 
 par GarbageCollectionSystem.host[0].outCan.channel typename "\"ned.DelayChannel\""
 par GarbageCollectionSystem.host[0].outCan.channel disabled false
@@ -99,34 +99,30 @@ attr unit s
 par GarbageCollectionSystem.can.outCloud.channel typename "\"ned.DelayChannel\""
 par GarbageCollectionSystem.can.outCloud.channel disabled false
 attr mutable ""
-par GarbageCollectionSystem.can.outCloud.channel delay 0.12s
+par GarbageCollectionSystem.can.outCloud.channel delay 0.3s
 attr mutable ""
 attr unit s
 par GarbageCollectionSystem.cloud.outCan[0].channel typename "\"ned.DelayChannel\""
 par GarbageCollectionSystem.cloud.outCan[0].channel disabled false
 attr mutable ""
-par GarbageCollectionSystem.cloud.outCan[0].channel delay 0.12s
+par GarbageCollectionSystem.cloud.outCan[0].channel delay 0.3s
 attr mutable ""
 attr unit s
 par GarbageCollectionSystem.anotherCan.outCloud.channel typename "\"ned.DelayChannel\""
 par GarbageCollectionSystem.anotherCan.outCloud.channel disabled false
 attr mutable ""
-par GarbageCollectionSystem.anotherCan.outCloud.channel delay 0.12s
+par GarbageCollectionSystem.anotherCan.outCloud.channel delay 0.3s
 attr mutable ""
 attr unit s
 par GarbageCollectionSystem.cloud.outCan[1].channel typename "\"ned.DelayChannel\""
 par GarbageCollectionSystem.cloud.outCan[1].channel disabled false
 attr mutable ""
-par GarbageCollectionSystem.cloud.outCan[1].channel delay 0.12s
+par GarbageCollectionSystem.cloud.outCan[1].channel delay 0.3s
 attr mutable ""
 attr unit s
 par GarbageCollectionSystem.host[0] typename "\"garbage_collection.GarbageCollector\""
-par GarbageCollectionSystem.host[0] moveDuration 0s
-attr unit s
-par GarbageCollectionSystem.host[0] moveUpdateInterval 0.05s
-attr unit s
-par GarbageCollectionSystem.host[0] turtleScript "<movement id=\"emptyCans\" name=\"rectangular patrol\">...</movement> at /Users/dmitrysolt/Desktop/IN5700_ass1/assignment_2/garbage_collection//turtle.xml:3"
 par GarbageCollectionSystem.host[0] reportToCloud false
+attr deprecated "Unused; kept for backward compatibility"
 par GarbageCollectionSystem.host[0] communicationMode "\"default\""
 par GarbageCollectionSystem.host[0] queryRetryInterval 0.45s
 attr unit s
@@ -139,7 +135,7 @@ par GarbageCollectionSystem.can canId 0
 par GarbageCollectionSystem.can responseDelay 0.2s
 attr unit s
 par GarbageCollectionSystem.can reportStatusToCloud false
-par GarbageCollectionSystem.can sendCollectToCloud true
+par GarbageCollectionSystem.can sendCollectToCloud false
 par GarbageCollectionSystem.can lostQueryCount 3
 par GarbageCollectionSystem.can collectDispatchDelay 0.05s
 attr unit s
@@ -149,15 +145,16 @@ par GarbageCollectionSystem.anotherCan canId 1
 par GarbageCollectionSystem.anotherCan responseDelay 0.2s
 attr unit s
 par GarbageCollectionSystem.anotherCan reportStatusToCloud false
-par GarbageCollectionSystem.anotherCan sendCollectToCloud true
+par GarbageCollectionSystem.anotherCan sendCollectToCloud false
 par GarbageCollectionSystem.anotherCan lostQueryCount 3
 par GarbageCollectionSystem.anotherCan collectDispatchDelay 0.05s
 attr unit s
 par GarbageCollectionSystem.cloud typename "\"garbage_collection.CloudServer\""
-par GarbageCollectionSystem.cloud ackDelay 0.2s
+par GarbageCollectionSystem.cloud ackDelay 0.6s
 attr unit s
 par GarbageCollectionSystem.visualizer typename "\"garbage_collection.GarbageVisualizer\""
-par GarbageCollectionSystem.visualizer initialText "\"Rectangular turtle patrol\""
+par GarbageCollectionSystem.visualizer initialText "\"\""
+par GarbageCollectionSystem.visualizer scenarioTitle "\"No garbage solution\""
 par GarbageCollectionSystem typename "\"garbage_collection.GarbageCollectionSystem\""
 par GarbageCollectionSystem canDelay 0.2s
 attr unit s
@@ -165,12 +162,67 @@ par GarbageCollectionSystem hostToCloudDelay 0.6s
 attr unit s
 par GarbageCollectionSystem cloudToHostDelay 0.6s
 attr unit s
-par GarbageCollectionSystem canToCloudDelay 0.12s
+par GarbageCollectionSystem canToCloudDelay 0.3s
 attr unit s
-par GarbageCollectionSystem cloudToCanDelay 0.12s
+par GarbageCollectionSystem cloudToCanDelay 0.3s
 attr unit s
 par GarbageCollectionSystem connectHostToCloud true
 par GarbageCollectionSystem connectCansToCloud true
-par GarbageCollectionSystem cloudAckDelay 0.2s
+par GarbageCollectionSystem cloudAckDelay 0.6s
 attr unit s
+par GarbageCollectionSystem scenarioTitle "\"No garbage solution\""
+par GarbageCollectionSystem smartSlowOutResult 0
+attr mutable ""
+par GarbageCollectionSystem smartSlowInResult 0
+attr mutable ""
+par GarbageCollectionSystem smartFastOutResult 800
+attr mutable ""
+par GarbageCollectionSystem smartFastInResult 200
+attr mutable ""
+par GarbageCollectionSystem canOutResult 100
+attr mutable ""
+par GarbageCollectionSystem canInResult 100
+attr mutable ""
+par GarbageCollectionSystem anotherCanOutResult 100
+attr mutable ""
+par GarbageCollectionSystem anotherCanInResult 100
+attr mutable ""
+par GarbageCollectionSystem cloudSlowOutResult 0
+attr mutable ""
+par GarbageCollectionSystem cloudSlowInResult 0
+attr mutable ""
+par GarbageCollectionSystem cloudFastOutResult 0
+attr mutable ""
+par GarbageCollectionSystem cloudFastInResult 0
+attr mutable ""
+par GarbageCollectionSystem hostCountersText "\"sentHostFast: 8 rcvdHostFast: 2 sentHostSlow: 0 rcvdHostSlow: 0\""
+attr mutable ""
+par GarbageCollectionSystem canCountersText "\"sentCanFast: 1 rcvdCanFast: 1 numberOfLostCanMsgs: 3\""
+attr mutable ""
+par GarbageCollectionSystem anotherCanCountersText "\"sentAnotherCanFast: 1 rcvdAnotherCanFast: 1 numberOfLostAnotherCanMsgs: 3\""
+attr mutable ""
+par GarbageCollectionSystem cloudCountersText "\"Cloud\\nFast -> sent: 0, received: 0, lost: 0\\nSlow -> sent: 0, received: 0, lost: 0\""
+attr mutable ""
+par GarbageCollectionSystem hostCollectCount 0
+attr mutable ""
+par GarbageCollectionSystem hostCollectAckCount 0
+attr mutable ""
+par GarbageCollectionSystem hostCan0Attempts 4
+attr mutable ""
+par GarbageCollectionSystem hostCan1Attempts 4
+attr mutable ""
+par GarbageCollectionSystem canCollectCount 0
+attr mutable ""
+par GarbageCollectionSystem anotherCanCollectCount 0
+attr mutable ""
+par GarbageCollectionSystem canCollectAckCount 0
+attr mutable ""
+par GarbageCollectionSystem anotherCanCollectAckCount 0
+attr mutable ""
+par GarbageCollectionSystem canLostQueriesFinal 3
+attr mutable ""
+par GarbageCollectionSystem anotherCanLostQueriesFinal 3
+attr mutable ""
+par GarbageCollectionSystem messageSummaryText "\"Smartphone did not send collect garbage messages directly to the cloud.\\nCans relied on the smartphone to notify the cloud.\\nSmartphone query attempts before success: can=4, anotherCan=4.\\nLost query deliveries before success:\\n  message 1 lost 3x\\n  message 4 lost 3x\""
+attr mutable ""
 

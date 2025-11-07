@@ -62,13 +62,10 @@ class CloudServer : public cSimpleModule {
     std::string formatStatusText() const
     {
         std::ostringstream oss;
-        oss << "Cloud\n"
-            << "Fast -> sent: " << sentFastCount
-            << ", received: " << rcvdFastCount
-            << ", lost: " << lostFastCount << "\n"
-            << "Slow -> sent: " << sentSlowCount
-            << ", received: " << rcvdSlowCount
-            << ", lost: " << lostSlowCount;
+        oss << "sentCloudFast: " << sentFastCount
+            << " rcvdCloudFast: " << rcvdFastCount
+            << " sentCloudSlow: " << sentSlowCount
+            << " rcvdCloudSlow: " << rcvdSlowCount;
         return oss.str();
     }
 
@@ -103,6 +100,11 @@ class CloudServer : public cSimpleModule {
 
         const std::string text = formatStatusText();
         counterFigure->setText(text.c_str());
+
+        if (cModule *parent = getParentModule()) {
+            if (parent->hasPar("cloudCountersText"))
+                parent->par("cloudCountersText").setStringValue(text.c_str());
+        }
     }
 
     void recordFastSend()
@@ -126,18 +128,6 @@ class CloudServer : public cSimpleModule {
     void recordSlowReceive()
     {
         ++rcvdSlowCount;
-        updateCounterFigure();
-    }
-
-    void recordLostFast()
-    {
-        ++lostFastCount;
-        updateCounterFigure();
-    }
-
-    void recordLostSlow()
-    {
-        ++lostSlowCount;
         updateCounterFigure();
     }
 
@@ -178,13 +168,6 @@ class CloudServer : public cSimpleModule {
                 delivered = trySendFastToIndex(i);
         }
 
-        if (!delivered) {
-            if (arrivedFromHost)
-                recordLostSlow();
-            else
-                recordLostFast();
-            delete ack;
-        }
     }
 
     bool isStatusCommand(const char *command) const

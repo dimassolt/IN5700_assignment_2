@@ -3,10 +3,7 @@ package garbage_collection;
 simple GarbageCollector
 {
     parameters:
-        double moveDuration @unit(s) = default(1s);
-        double moveUpdateInterval @unit(s) = default(0.05s);
-        xml turtleScript = default(xml("<movement/>"));
-        bool reportToCloud = default(false);
+        bool reportToCloud @deprecated("Unused; kept for backward compatibility") = default(false);
         string communicationMode = default("default");
         double queryRetryInterval @unit(s) = default(0.4s);
         int maxQueryAttempts = default(4);
