@@ -10,6 +10,11 @@ using namespace omnetpp;
 using namespace garbage_collection;
 
 namespace {
+
+/**
+ * Locates and returns the named text figure on the network canvas.
+ * Throws a runtime error when the figure cannot be resolved.
+ */
 cTextFigure *requireTextFigure(cModule *module, const char *name)
 {
     if (!module)
@@ -37,7 +42,8 @@ cTextFigure *requireTextFigure(cModule *module, const char *name)
     throw cRuntimeError("%s: unable to locate text figure '%s'", module->getFullPath().c_str(), name);
 }
 
-const char *kCollectAckCommandFor(int canId)
+/// Maps can identifiers to acknowledgement command labels.
+const char *collectAckCommandFor(int canId)
 {
     return canId == 0 ? "8-OK" : "10-OK";
 }
@@ -46,19 +52,18 @@ const char *kCollectAckCommandFor(int canId)
 
 class CloudServer : public cSimpleModule {
   private:
-    simtime_t ackDelay;
-    std::map<int, bool> latestStatuses;
+        simtime_t ackDelay;                               //!< Delay applied to acknowledgements.
+        std::map<int, bool> latestStatuses;               //!< Last status message received per can.
 
-    long sentFastCount = 0;
-    long rcvdFastCount = 0;
-    long sentSlowCount = 0;
-    long rcvdSlowCount = 0;
-    long lostFastCount = 0;
-    long lostSlowCount = 0;
+        long sentFastCount = 0;
+        long rcvdFastCount = 0;
+        long sentSlowCount = 0;
+        long rcvdSlowCount = 0;
 
-    cTextFigure *counterFigure = nullptr;
-    bool displayCounters = true;
+        cTextFigure *counterFigure = nullptr;             //!< Canvas figure showing cloud counters.
+        bool displayCounters = true;
 
+    /** Renders condensed counter information for the GUI and report. */
     std::string formatStatusText() const
     {
         std::ostringstream oss;
@@ -69,6 +74,7 @@ class CloudServer : public cSimpleModule {
         return oss.str();
     }
 
+    /** Returns true when the provided module is expected to communicate with the cloud quickly. */
     static bool moduleHasFastCloudTraffic(cModule *module)
     {
         if (!module)
@@ -78,6 +84,7 @@ class CloudServer : public cSimpleModule {
         return (report || sendCollect) && module->hasGate("outCloud") && module->gate("outCloud")->isConnected();
     }
 
+    /** Determines whether the cloud counters figure should be visible. */
     bool shouldDisplayCounters() const
     {
         cModule *parent = getParentModule();
@@ -89,6 +96,7 @@ class CloudServer : public cSimpleModule {
         return hostUsesCloud || canUsesCloud || anotherUsesCloud;
     }
 
+    /** Updates the cloud counter figure when visibility is enabled. */
     void updateCounterFigure()
     {
         if (!counterFigure)
@@ -131,6 +139,10 @@ class CloudServer : public cSimpleModule {
         updateCounterFigure();
     }
 
+    /**
+     * Attempts to deliver an acknowledgement to the originating module.
+     * Prefers mirroring the arrival path; falling back to any connected gate when necessary.
+     */
     void sendAck(GarbagePacket *ack, cGate *arrivalGate)
     {
         const bool arrivedFromHost = arrivalGate && strcmp(arrivalGate->getBaseName(), "inHost") == 0;
@@ -218,7 +230,7 @@ class CloudServer : public cSimpleModule {
                     << " (note=" << (pkt->getNote() ? pkt->getNote() : "") << ")" << endl;
 
             auto *ack = new GarbagePacket("collect-OK");
-            ack->setCommand(kCollectAckCommandFor(canId));
+            ack->setCommand(collectAckCommandFor(canId));
             ack->setCanId(canId);
             ack->setIsFull(false);
             ack->setTravelTime(SIMTIME_DBL(ackDelay));

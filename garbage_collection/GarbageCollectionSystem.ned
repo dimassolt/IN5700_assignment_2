@@ -4,25 +4,33 @@ import garbage_collection.GarbageCollector;
 import garbage_collection.GarbageCan;
 import garbage_collection.CloudServer;
 import garbage_collection.GarbageVisualizer;
-import ned.DelayChannel;
-import ned.IBidirectionalChannel;
-import ned.IUnidirectionalChannel;
-import ned.IdealChannel;
 
+
+// Composes the smart garbage collection scenario by wiring the host controller,
+// two cans, a cloud backend and a visualization helper. Connectivity delays and
+// metric placeholders are exposed as parameters so individual configs can
+// emulate slow or fast deployments.
 
 network GarbageCollectionSystem
 {
     parameters:
+        // Base communication delays between modules.
         double canDelay @unit(s) = default(0.1s);
         double hostToCloudDelay @unit(s) = default(0.3s);
         double cloudToHostDelay @unit(s) = default(0.3s);
         double canToCloudDelay @unit(s) = default(0.15s);
         double cloudToCanDelay @unit(s) = default(0.15s);
+        double cloudAckDelay @unit(s) = default(0.2s);
+
+        // Connectivity toggles determining which links are instantiated.
         bool connectHostToCloud = default(false);
         bool connectCansToCloud = default(false);
-        double cloudAckDelay @unit(s) = default(0.2s);
+
+        // Scenario metadata propagated to visualizers and modules.
         string scenarioTitle = default("No garbage solution");
         string communicationMode = default("default");
+
+        // Metrics captured during simulation and rendered by the visualizer.
         double smartSlowOutResult @mutable = default(0);
         double smartSlowInResult @mutable = default(0);
         double smartFastOutResult @mutable = default(0);
@@ -35,10 +43,8 @@ network GarbageCollectionSystem
         double cloudSlowInResult @mutable = default(0);
         double cloudFastOutResult @mutable = default(0);
         double cloudFastInResult @mutable = default(0);
-        string hostCountersText @mutable = default("GarbageCollector\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
-        string canCountersText @mutable = default("Can\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
-        string anotherCanCountersText @mutable = default("AnotherCan\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
-        string cloudCountersText @mutable = default("Cloud\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
+
+    // Aggregated counters used for reports and visual feedback.
         int hostCollectCount @mutable = default(0);
         int hostCollectAckCount @mutable = default(0);
         int hostCan0Attempts @mutable = default(0);
@@ -49,6 +55,8 @@ network GarbageCollectionSystem
         int anotherCanCollectAckCount @mutable = default(0);
         int canLostQueriesFinal @mutable = default(0);
         int anotherCanLostQueriesFinal @mutable = default(0);
+
+    // Canvas decoration and labels for the road layout and metrics panel.
         @display("bgb=2000,800,#ECFFB3,#dfe6f0,2");
         @figure[roadOuterTop](type=rectangle; pos=140,140; size=1250,2; lineColor=#000000; lineWidth=1; fillColor=#000000; fillOpacity=1);
         @figure[roadOuterBottom](type=rectangle; pos=140,677; size=1250,2; lineColor=#000000; lineWidth=1; fillColor=#000000; fillOpacity=1);
@@ -88,7 +96,6 @@ network GarbageCollectionSystem
         @figure[anotherCanCounters](type=text; pos=496,470; text=""; font="Arial,18"; color=#0000ff; anchor=c);
         @figure[cloudCounters](type=text; pos=1283,260; text=""; font="Arial,18"; color=#0000ff; anchor=c);
 
-    types:
     submodules:
         host[1]: GarbageCollector {
             parameters:
@@ -119,21 +126,21 @@ network GarbageCollectionSystem
                 @display("p=1025,55;i=block/app;b=60,51,,#f0f4ff");
         }
     connections:
-        host[0].outCan --> {  delay = parent.canDelay; } --> can.in;
-        can.out --> {  delay = parent.canDelay; } --> host[0].inCan;
-        host[0].outAnotherCan --> {  delay = parent.canDelay; } --> anotherCan.in;
-        anotherCan.out --> {  delay = parent.canDelay; } --> host[0].inAnotherCan;
+        host[0].outCan --> { delay = parent.canDelay; } --> can.in;
+        can.out --> { delay = parent.canDelay; } --> host[0].inCan;
+        host[0].outAnotherCan --> { delay = parent.canDelay; } --> anotherCan.in;
+        anotherCan.out --> { delay = parent.canDelay; } --> host[0].inAnotherCan;
 
         if (connectHostToCloud) {
-            host[0].outCloud --> {  delay = parent.hostToCloudDelay; } --> cloud.inHost;
-            cloud.outHost --> {  delay = parent.cloudToHostDelay; } --> host[0].inCloud;
+            host[0].outCloud --> { delay = parent.hostToCloudDelay; } --> cloud.inHost;
+            cloud.outHost --> { delay = parent.cloudToHostDelay; } --> host[0].inCloud;
         }
 
         if (connectCansToCloud) {
-            can.outCloud --> {  delay = parent.canToCloudDelay; } --> cloud.inCan[0];
-            cloud.outCan[0] --> {  delay = parent.cloudToCanDelay; } --> can.inCloud;
+            can.outCloud --> { delay = parent.canToCloudDelay; } --> cloud.inCan[0];
+            cloud.outCan[0] --> { delay = parent.cloudToCanDelay; } --> can.inCloud;
 
-            anotherCan.outCloud --> {  delay = parent.canToCloudDelay; } --> cloud.inCan[1];
-            cloud.outCan[1] --> {  delay = parent.cloudToCanDelay; } --> anotherCan.inCloud;
+            anotherCan.outCloud --> { delay = parent.canToCloudDelay; } --> cloud.inCan[1];
+            cloud.outCan[1] --> { delay = parent.cloudToCanDelay; } --> anotherCan.inCloud;
         }
 }

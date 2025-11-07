@@ -13,6 +13,11 @@ using namespace omnetpp;
 using namespace garbage_collection;
 
 namespace {
+
+/**
+ * Finds and returns a named text figure attached to the parent canvas.
+ * Throws if the figure is missing so the simulation fails fast.
+ */
 cTextFigure *requireTextFigure(cModule *module, const char *name)
 {
     if (!module)
@@ -20,7 +25,8 @@ cTextFigure *requireTextFigure(cModule *module, const char *name)
 
     cCanvas *canvas = module->getParentModule()->getCanvas();
     if (!canvas)
-        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'", module->getFullPath().c_str(), name);
+        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'",
+            module->getFullPath().c_str(), name);
 
     std::function<cTextFigure *(cFigure *)> search = [&](cFigure *figure) -> cTextFigure * {
         if (!figure)
@@ -37,24 +43,64 @@ cTextFigure *requireTextFigure(cModule *module, const char *name)
     if (auto *result = search(canvas->getRootFigure()))
         return result;
 
-    throw cRuntimeError("%s: unable to locate text figure '%s'", module->getFullPath().c_str(), name);
+    throw cRuntimeError("%s: unable to locate text figure '%s'",
+        module->getFullPath().c_str(), name);
 }
 
+/** Returns the status query command targeting the provided can id. */
 const char *kQueryCommandFor(int canId)
 {
     return canId == 0 ? "1-Is the can full?" : "4-Is the can full?";
 }
 
+/** Returns the collect request command targeting the provided can id. */
 const char *kCollectCommandFor(int canId)
 {
     return canId == 0 ? "7-Collect garbage" : "9-Collect garbage";
 }
 
+/** Returns the collect acknowledgement command expected from the cloud. */
 const char *kCollectAckCommandFor(int canId)
 {
     return canId == 0 ? "8-OK" : "10-OK";
 }
 
+/** Returns the base name of the fast input gate for the given can id. */
+const char *kInGateBaseNameFor(int canId)
+{
+    return canId == 0 ? "inCan" : "inAnotherCan";
+}
+
+/** Returns the name of the fast output gate for the given can id. */
+const char *kOutGateNameFor(int canId)
+{
+    return canId == 0 ? "outCan" : "outAnotherCan";
+}
+
+/** Returns true when the command string denotes a status response. */
+bool isStatusCommand(const std::string &command)
+{
+    return command == "2-NO" || command == "3-YES" || command == "5-NO" || command == "6-YES";
+}
+
+/**
+ * Determines whether a command string matches a collect acknowledgement and
+ * outputs the corresponding can id via the canId parameter.
+ */
+bool isCollectAckCommand(const std::string &command, int &canId)
+{
+    if (command == kCollectAckCommandFor(0)) {
+        canId = 0;
+        return true;
+    }
+    if (command == kCollectAckCommandFor(1)) {
+        canId = 1;
+        return true;
+    }
+    return false;
+}
+
+/** Increments an integer parameter on the parent module when available. */
 void incrementParentCounter(cModule *module, const char *parName)
 {
     if (!module)
@@ -67,6 +113,7 @@ void incrementParentCounter(cModule *module, const char *parName)
     }
 }
 
+/** Writes an integer parameter on the parent module when available. */
 void setParentIntParameter(cModule *module, const char *parName, int value)
 {
     if (!module)
@@ -77,18 +124,23 @@ void setParentIntParameter(cModule *module, const char *parName, int value)
     }
 }
 
-}
+} // namespace
 
+/**
+ * Coordinates garbage can inspections by sending status queries, tracking
+ * retries, and optionally escalating collect requests to the cloud.
+ */
 class GarbageCollector : public cSimpleModule {
   private:
+    static constexpr int kCanCount = 2;
     static constexpr int kUnknownState = -1;
 
     cMessage *startEvent = nullptr;
-    std::array<cMessage *, 2> retryEvents {nullptr, nullptr};
-    std::array<int, 2> canStates {kUnknownState, kUnknownState};
-    std::array<int, 2> attemptCounters {0, 0};
-    std::array<bool, 2> awaitingCollectAck {false, false};
-    std::array<bool, 2> collectSent {false, false};
+    std::array<cMessage *, kCanCount> retryEvents {nullptr, nullptr};
+    std::array<int, kCanCount> canStates {kUnknownState, kUnknownState};
+    std::array<int, kCanCount> attemptCounters {0, 0};
+    std::array<bool, kCanCount> awaitingCollectAck {false, false};
+    std::array<bool, kCanCount> collectSent {false, false};
     std::deque<int> collectQueue;
     bool pendingSecondCanQuery = false;
 
@@ -111,6 +163,11 @@ class GarbageCollector : public cSimpleModule {
     std::map<std::string, long> receivedSlowMessages;
 
     cTextFigure *counterFigure = nullptr;
+
+    bool isValidCan(int canId) const
+    {
+        return canId >= 0 && canId < kCanCount;
+    }
 
     static void noteMessage(std::map<std::string, long> &bucket, const char *command)
     {
@@ -171,11 +228,16 @@ class GarbageCollector : public cSimpleModule {
         }
     }
 
+    /** Returns true when at least one collect request still waits for an ack. */
     bool hasPendingCollectAck() const
     {
         return std::any_of(awaitingCollectAck.begin(), awaitingCollectAck.end(), [](bool awaiting) { return awaiting; });
     }
 
+    /**
+     * Sends pending collect requests while respecting cloud-ack sequencing.
+     * When acknowledgements are expected, only one collect is in flight.
+     */
     void processCollectQueue()
     {
         if (!hostSendsCollect || !gate("outCloud")->isConnected())
@@ -188,6 +250,11 @@ class GarbageCollector : public cSimpleModule {
             int canId = collectQueue.front();
             collectQueue.pop_front();
 
+            if (!isValidCan(canId)) {
+                EV_WARN << "Skipping collect for invalid can id " << canId << endl;
+                continue;
+            }
+
             sendCollectRequest(canId);
 
             if (expectCloudAck)
@@ -195,9 +262,12 @@ class GarbageCollector : public cSimpleModule {
         }
     }
 
+    /**
+     * Queues a collect request for the given can if one was not already issued.
+     */
     void enqueueCollect(int canId)
     {
-        if (canId < 0 || canId >= static_cast<int>(collectSent.size()))
+        if (!isValidCan(canId))
             return;
 
         if (collectSent[canId])
@@ -237,6 +307,56 @@ class GarbageCollector : public cSimpleModule {
         updateHostCountersFigure();
     }
 
+    /** Updates host counters based on the gate a packet arrived on. */
+    void recordArrivalCounters(GarbagePacket *pkt)
+    {
+        if (auto *arrivalGate = pkt->getArrivalGate()) {
+            const char *base = arrivalGate->getBaseName();
+            const char *command = pkt->getCommand();
+            if (strcmp(base, kInGateBaseNameFor(0)) == 0 || strcmp(base, kInGateBaseNameFor(1)) == 0) {
+                recordHostFastReceive(command);
+            }
+            else if (strcmp(base, "inCloud") == 0) {
+                recordHostSlowReceive(command);
+            }
+        }
+    }
+
+    /** Cancels a scheduled retry event if one exists for the given can. */
+    void cancelRetryIfScheduled(int canId)
+    {
+        ensureRetryEvent(canId);
+        if (retryEvents[canId]->isScheduled())
+            cancelEvent(retryEvents[canId]);
+    }
+
+    /** Sends a fast-channel query to the specified can and records metrics. */
+    void sendQueryToCan(int canId, GarbagePacket *query)
+    {
+        recordHostFastSend(query->getCommand());
+        send(query, kOutGateNameFor(canId));
+    }
+
+    /**
+     * Handles sequencing between the first and second can. When the first can
+     * is observed full, the collector may defer querying the second can until
+     * after the cloud acknowledges the triggered collect.
+     */
+    void maybeScheduleSecondCanQuery(bool firstObservation, int respondingCanId, bool reportedFull)
+    {
+        if (!firstObservation || respondingCanId != 0 || attemptCounters[1] != 0)
+            return;
+
+        const bool shouldDeferSecondQuery = reportedFull && hostSendsCollect && expectCloudAck
+            && gate("outCloud")->isConnected();
+        if (shouldDeferSecondQuery) {
+            pendingSecondCanQuery = true;
+        }
+        else {
+            scheduleQuery(1, simTime() + retryInterval);
+        }
+    }
+
     void ensureRetryEvent(int canId)
     {
         if (!retryEvents[canId]) {
@@ -253,16 +373,17 @@ class GarbageCollector : public cSimpleModule {
         scheduleAt(std::max(simTime(), when), retryEvents[canId]);
     }
 
+    /** Issues a status query for the given can, scheduling retries as needed. */
     void attemptQuery(int canId)
     {
-        if (canId < 0 || canId >= static_cast<int>(canStates.size()))
+        if (!isValidCan(canId))
             throw cRuntimeError("Invalid can id %d", canId);
 
         if (canStates[canId] != kUnknownState)
             return;
 
-        attemptCounters[canId]++;
-        if (attemptCounters[canId] > maxQueryAttempts) {
+        const int currentAttempt = ++attemptCounters[canId];
+        if (currentAttempt > maxQueryAttempts) {
             EV_WARN << "Reached max query attempts for can " << canId << " without response" << endl;
             return;
         }
@@ -272,28 +393,22 @@ class GarbageCollector : public cSimpleModule {
         query->setCanId(canId);
         query->setIsFull(false);
         query->setTravelTime(0);
-        const std::string attemptNote = "attempt=" + std::to_string(attemptCounters[canId]);
+        const std::string attemptNote = "attempt=" + std::to_string(currentAttempt);
         query->setNote(attemptNote.c_str());
 
-        if (canId == 0) {
-            recordHostFastSend(query->getCommand());
-            send(query, "outCan");
-        }
-        else {
-            recordHostFastSend(query->getCommand());
-            send(query, "outAnotherCan");
-        }
+        sendQueryToCan(canId, query);
 
-        EV_INFO << "Sent query attempt " << attemptCounters[canId] << " to can " << canId << endl;
+        EV_INFO << "Sent query attempt " << currentAttempt << " to can " << canId << endl;
 
-        if (canStates[canId] == kUnknownState && attemptCounters[canId] < maxQueryAttempts)
+        if (canStates[canId] == kUnknownState && currentAttempt < maxQueryAttempts)
             scheduleQuery(canId, simTime() + retryInterval);
     }
 
+    /** Processes a status response from one of the cans. */
     void handleStatus(GarbagePacket *pkt)
     {
         const int canId = pkt->getCanId();
-        if (canId < 0 || canId >= static_cast<int>(canStates.size())) {
+        if (!isValidCan(canId)) {
             EV_WARN << "Received status for unknown can " << canId << endl;
             return;
         }
@@ -305,23 +420,12 @@ class GarbageCollector : public cSimpleModule {
         EV_INFO << "Can " << canId << " reported " << (isFull ? "full" : "empty")
                 << " after " << attemptCounters[canId] << " attempts" << endl;
 
-        ensureRetryEvent(canId);
-        if (retryEvents[canId]->isScheduled())
-            cancelEvent(retryEvents[canId]);
+        cancelRetryIfScheduled(canId);
 
         if (isFull && hostSendsCollect && gate("outCloud")->isConnected())
             enqueueCollect(canId);
 
-        if (firstObservation && canId == 0 && attemptCounters[1] == 0) {
-            const bool shouldDeferSecondQuery = isFull && hostSendsCollect && expectCloudAck
-                && gate("outCloud")->isConnected();
-            if (shouldDeferSecondQuery) {
-                pendingSecondCanQuery = true;
-            }
-            else {
-                scheduleQuery(1, simTime() + retryInterval);
-            }
-        }
+        maybeScheduleSecondCanQuery(firstObservation, canId, isFull);
 
         finalizeInspection();
     }
@@ -331,6 +435,7 @@ class GarbageCollector : public cSimpleModule {
         return std::find(canStates.begin(), canStates.end(), kUnknownState) == canStates.end();
     }
 
+    /** Marks the inspection finished once both cans have reported. */
     void finalizeInspection()
     {
         if (inspectionComplete || !allCansKnown())
@@ -345,12 +450,13 @@ class GarbageCollector : public cSimpleModule {
         if (!hostSendsCollect || !gate("outCloud")->isConnected())
             return;
 
-        for (int canId = 0; canId < static_cast<int>(canStates.size()); ++canId) {
+        for (int canId = 0; canId < kCanCount; ++canId) {
             if (canStates[canId] == 1)
                 enqueueCollect(canId);
         }
     }
 
+    /** Sends a collect request for the provided can over the slow cloud link. */
     void sendCollectRequest(int canId)
     {
         collectSent[canId] = true;
@@ -370,10 +476,11 @@ class GarbageCollector : public cSimpleModule {
             awaitingCollectAck[canId] = true;
     }
 
+    /** Handles acknowledgements from the cloud for previously sent collects. */
     void handleCloudAck(GarbagePacket *pkt)
     {
         const int canId = pkt->getCanId();
-        if (canId < 0 || canId >= static_cast<int>(awaitingCollectAck.size())) {
+        if (!isValidCan(canId)) {
             EV_WARN << "Cloud acknowledgement missing can id" << endl;
             return;
         }
@@ -382,7 +489,7 @@ class GarbageCollector : public cSimpleModule {
         EV_INFO << "Cloud acknowledgement received for can " << canId
                 << ": " << (pkt->getNote() ? pkt->getNote() : "") << endl;
         incrementParentCounter(this, "hostCollectAckCount");
-    processCollectQueue();
+        processCollectQueue();
 
         if (pendingSecondCanQuery && canId == 0 && attemptCounters[1] == 0) {
             pendingSecondCanQuery = false;
@@ -433,7 +540,7 @@ class GarbageCollector : public cSimpleModule {
             return;
         }
 
-        for (int canId = 0; canId < static_cast<int>(retryEvents.size()); ++canId) {
+        for (int canId = 0; canId < kCanCount; ++canId) {
             if (msg == retryEvents[canId]) {
                 attemptQuery(canId);
                 return;
@@ -442,22 +549,19 @@ class GarbageCollector : public cSimpleModule {
 
         auto *pkt = check_and_cast<GarbagePacket *>(msg);
         const std::string command = pkt->getCommand();
-        if (cGate *arrivalGate = pkt->getArrivalGate()) {
-            const char *base = arrivalGate->getBaseName();
-            if (strcmp(base, "inCan") == 0 || strcmp(base, "inAnotherCan") == 0)
-                recordHostFastReceive(command.c_str());
-            else if (strcmp(base, "inCloud") == 0)
-                recordHostSlowReceive(command.c_str());
-        }
+        recordArrivalCounters(pkt);
 
-        if (command == "2-NO" || command == "3-YES" || command == "5-NO" || command == "6-YES") {
+        if (isStatusCommand(command)) {
             handleStatus(pkt);
         }
-        else if (command == kCollectAckCommandFor(0) || command == kCollectAckCommandFor(1)) {
-            handleCloudAck(pkt);
-        }
         else {
-            EV_WARN << "Collector received unexpected command '" << command << "'" << endl;
+            int ackCanId = -1;
+            if (isCollectAckCommand(command, ackCanId)) {
+                handleCloudAck(pkt);
+            }
+            else {
+                EV_WARN << "Collector received unexpected command '" << command << "'" << endl;
+            }
         }
         delete pkt;
     }

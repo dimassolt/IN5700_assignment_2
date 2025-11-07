@@ -1,8 +1,8 @@
 version 3
-run GarbageInTheCansAndFast-0-20251107-05:29:46-60563
+run GarbageInTheCansAndFast-0-20251107-15:36:02-27349
 attr configname GarbageInTheCansAndFast
-attr datetime 20251107-05:29:46
-attr datetimef 20251107-052946
+attr datetime 20251107-15:36:02
+attr datetimef 20251107-153602
 attr experiment GarbageInTheCansAndFast
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 60563
+attr processid 27349
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -50,6 +50,7 @@ config *.hostToCloudDelay 0.6s
 config *.cloudToHostDelay 0.6s
 config *.canToCloudDelay 0.3s
 config *.cloudToCanDelay 0.3s
+config *.cloudAckDelay 0.6s
 config *.can.hasGarbage false
 config *.anotherCan.hasGarbage false
 config *.can.responseDelay 0.15s
@@ -64,7 +65,6 @@ config *.can.collectDispatchDelay 0.05s
 config *.anotherCan.collectDispatchDelay 0.05s
 config *.connectHostToCloud true
 config *.connectCansToCloud true
-config *.cloudAckDelay 0.6s
 config *.host[0].queryRetryInterval 0.45s
 config *.host[0].maxQueryAttempts 4
 config *.host[0].hostSendsCollect false
@@ -190,10 +190,10 @@ par GarbageCollectionSystem canToCloudDelay 0.12s
 attr unit s
 par GarbageCollectionSystem cloudToCanDelay 0.12s
 attr unit s
-par GarbageCollectionSystem connectHostToCloud true
-par GarbageCollectionSystem connectCansToCloud true
 par GarbageCollectionSystem cloudAckDelay 0.12s
 attr unit s
+par GarbageCollectionSystem connectHostToCloud true
+par GarbageCollectionSystem connectCansToCloud true
 par GarbageCollectionSystem scenarioTitle "\"Fog-based solution with fast messages\""
 par GarbageCollectionSystem communicationMode "\"GarbageInTheCansAndFast\""
 par GarbageCollectionSystem smartSlowOutResult 0
@@ -220,32 +220,24 @@ par GarbageCollectionSystem cloudFastOutResult 200
 attr mutable ""
 par GarbageCollectionSystem cloudFastInResult 200
 attr mutable ""
-par GarbageCollectionSystem hostCountersText "\"sentHostFast: 4 rcvdHostFast: 0 sentHostSlow: 0 rcvdHostSlow: 0\""
-attr mutable ""
-par GarbageCollectionSystem canCountersText "\"sentCanFast: 0 rcvdCanFast: 0 numberOfLostCanMsgs: 3\""
-attr mutable ""
-par GarbageCollectionSystem anotherCanCountersText "\"sentAnotherCanFast: 0 rcvdAnotherCanFast: 0 numberOfLostAnotherCanMsgs: 0\""
-attr mutable ""
-par GarbageCollectionSystem cloudCountersText "\"sentCloudFast: 0 rcvdCloudFast: 0 sentCloudSlow: 0 rcvdCloudSlow: 0\""
-attr mutable ""
 par GarbageCollectionSystem hostCollectCount 0
 attr mutable ""
 par GarbageCollectionSystem hostCollectAckCount 0
 attr mutable ""
 par GarbageCollectionSystem hostCan0Attempts 4
 attr mutable ""
-par GarbageCollectionSystem hostCan1Attempts 0
+par GarbageCollectionSystem hostCan1Attempts 4
 attr mutable ""
-par GarbageCollectionSystem canCollectCount 0
+par GarbageCollectionSystem canCollectCount 1
 attr mutable ""
-par GarbageCollectionSystem anotherCanCollectCount 0
+par GarbageCollectionSystem anotherCanCollectCount 1
 attr mutable ""
-par GarbageCollectionSystem canCollectAckCount 0
+par GarbageCollectionSystem canCollectAckCount 1
 attr mutable ""
-par GarbageCollectionSystem anotherCanCollectAckCount 0
+par GarbageCollectionSystem anotherCanCollectAckCount 1
 attr mutable ""
 par GarbageCollectionSystem canLostQueriesFinal 3
 attr mutable ""
-par GarbageCollectionSystem anotherCanLostQueriesFinal 0
+par GarbageCollectionSystem anotherCanLostQueriesFinal 3
 attr mutable ""
 

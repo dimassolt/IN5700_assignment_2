@@ -8,6 +8,10 @@
 
 using namespace omnetpp;
 
+/**
+ * Renders live wiring between system modules and displays scenario metrics
+ * after the simulation completes.
+ */
 class GarbageVisualizer : public cSimpleModule {
   private:
     struct ValueBinding {
@@ -40,6 +44,7 @@ class GarbageVisualizer : public cSimpleModule {
         return {x, y};
     }
 
+    /** Converts a recorded statistic to a rounded printable string. */
     static std::string formatResult(double value)
     {
         if (std::isnan(value))
@@ -74,8 +79,68 @@ class GarbageVisualizer : public cSimpleModule {
         }
     }
 
+    /** Fetches the top-level system module, throwing if the cast fails. */
+    cModule *requireSystemModule()
+    {
+        if (auto *module = getParentModule())
+            return module;
+        throw cRuntimeError("GarbageVisualizer: missing parent system module");
+    }
+
+    /** Returns the submodule with the given name, throwing on failure. */
+    cModule *requireSubmodule(const char *name, int index = -1)
+    {
+        cModule *owner = systemModule;
+        cModule *found = (index >= 0) ? owner->getSubmodule(name, index) : owner->getSubmodule(name);
+        if (!found)
+            throw cRuntimeError("GarbageVisualizer: unable to locate submodule '%s'", name);
+        return found;
+    }
+
+    /** Locates a mandatory text figure on the canvas. */
+    cTextFigure *requireTextFigure(const char *figureName)
+    {
+        cCanvas *canvas = systemModule->getCanvas();
+        auto *figure = canvas->getFigure(figureName);
+        if (!figure)
+            throw cRuntimeError("GarbageVisualizer: missing figure '%s'", figureName);
+        return check_and_cast<cTextFigure *>(figure);
+    }
+
+    /** Helper for configuring the lines linking cloud to other modules. */
+    cLineFigure *createLinkLine(const char *name)
+    {
+        cCanvas *canvas = systemModule->getCanvas();
+        auto *line = new cLineFigure(name);
+        line->setLineColor(cFigure::Color(90, 90, 90));
+        line->setLineWidth(2);
+        line->setZIndex(-1);
+        canvas->addFigure(line);
+        return line;
+    }
+
+    void registerBinding(const char *figureName, const char *parameterName)
+    {
+        ValueBinding binding;
+        binding.figureName = figureName;
+        binding.figure = requireTextFigure(figureName);
+        binding.figure->setText(initialText.c_str());
+        if (!systemModule->hasPar(parameterName)) {
+            EV_WARN << "GarbageVisualizer: statistic parameter '" << parameterName
+                    << "' not found; figure '" << figureName << "' will stay blank" << endl;
+            binding.compute = []() { return std::string(); };
+        }
+        else {
+            binding.compute = [this, parameterName]() {
+                return formatResult(systemModule->par(parameterName).doubleValue());
+            };
+        }
+        delayBindings.push_back(std::move(binding));
+    }
+
   protected:
-    virtual void initialize() override {
+    void initialize() override
+    {
         initialText = par("initialText").stdstringValue();
         scenarioTitle = par("scenarioTitle").stdstringValue();
         constexpr size_t kMaxInitialText = 256;
@@ -83,71 +148,58 @@ class GarbageVisualizer : public cSimpleModule {
             EV_WARN << "visualizer.initialText truncated from " << initialText.size() << " to " << kMaxInitialText << " characters" << endl;
             initialText.resize(kMaxInitialText);
         }
-        systemModule = getParentModule();
-        cCanvas *canvas = systemModule->getCanvas();
-        cloudModule = systemModule->getSubmodule("cloud");
-        hostModule = systemModule->getSubmodule("host", 0);
-        canModule = systemModule->getSubmodule("can");
-        anotherCanModule = systemModule->getSubmodule("anotherCan");
+        systemModule = requireSystemModule();
 
-        if (!cloudModule || !hostModule || !canModule || !anotherCanModule)
-            throw cRuntimeError("GarbageVisualizer: unable to locate required submodules for line figures");
+        cloudModule = requireSubmodule("cloud");
+        hostModule = requireSubmodule("host", 0);
+        canModule = requireSubmodule("can");
+        anotherCanModule = requireSubmodule("anotherCan");
 
-        auto configureLine = [canvas](const char *name) {
-            auto *line = new cLineFigure(name);
-            line->setLineColor(cFigure::Color(90, 90, 90));
-            line->setLineWidth(2);
-            line->setZIndex(-1);
-            canvas->addFigure(line);
-            return line;
-        };
+        cloudHostLine = createLinkLine("cloudHostLine");
+        cloudCanLine = createLinkLine("cloudCanLine");
+        cloudAnotherCanLine = createLinkLine("cloudAnotherCanLine");
 
-        cloudHostLine = configureLine("cloudHostLine");
-        cloudCanLine = configureLine("cloudCanLine");
-        cloudAnotherCanLine = configureLine("cloudAnotherCanLine");
-
-        headingFigure = check_and_cast<cTextFigure *>(canvas->getFigure("infoHeading"));
+        headingFigure = requireTextFigure("infoHeading");
         headingFigure->setText(scenarioTitle.c_str());
 
-        auto registerBinding = [&](const char *figureName, const char *parameterName) {
-            ValueBinding binding;
-            binding.figureName = figureName;
-            binding.figure = check_and_cast<cTextFigure *>(canvas->getFigure(figureName));
-            binding.figure->setText(initialText.c_str());
-            binding.compute = [this, parameterName]() {
-                if (!systemModule || !systemModule->hasPar(parameterName))
-                    return std::string();
-                return formatResult(systemModule->par(parameterName).doubleValue());
-            };
-            delayBindings.push_back(std::move(binding));
+        static const struct {
+            const char *figureName;
+            const char *parameterName;
+        } kBindingSpecs[] = {
+            {"smartSlowOutValue", "smartSlowOutResult"},
+            {"smartSlowInValue", "smartSlowInResult"},
+            {"smartFastOutValue", "smartFastOutResult"},
+            {"smartFastInValue", "smartFastInResult"},
+            {"canOutValue", "canOutResult"},
+            {"canInValue", "canInResult"},
+            {"anotherCanOutValue", "anotherCanOutResult"},
+            {"anotherCanInValue", "anotherCanInResult"},
+            {"cloudSlowOutValue", "cloudSlowOutResult"},
+            {"cloudSlowInValue", "cloudSlowInResult"},
+            {"cloudFastOutValue", "cloudFastOutResult"},
+            {"cloudFastInValue", "cloudFastInResult"}
         };
 
-        registerBinding("smartSlowOutValue", "smartSlowOutResult");
-        registerBinding("smartSlowInValue", "smartSlowInResult");
-        registerBinding("smartFastOutValue", "smartFastOutResult");
-        registerBinding("smartFastInValue", "smartFastInResult");
-        registerBinding("canOutValue", "canOutResult");
-        registerBinding("canInValue", "canInResult");
-        registerBinding("anotherCanOutValue", "anotherCanOutResult");
-        registerBinding("anotherCanInValue", "anotherCanInResult");
-        registerBinding("cloudSlowOutValue", "cloudSlowOutResult");
-        registerBinding("cloudSlowInValue", "cloudSlowInResult");
-        registerBinding("cloudFastOutValue", "cloudFastOutResult");
-        registerBinding("cloudFastInValue", "cloudFastInResult");
+        const size_t bindingCount = sizeof(kBindingSpecs) / sizeof(kBindingSpecs[0]);
+        delayBindings.reserve(delayBindings.size() + bindingCount);
+        for (size_t i = 0; i < bindingCount; ++i)
+            registerBinding(kBindingSpecs[i].figureName, kBindingSpecs[i].parameterName);
 
         updateLines();
     }
 
-    virtual void finish() override {
+    void finish() override
+    {
         resultsReady = true;
         updateDelayTexts();
     }
 
-    virtual void handleMessage(cMessage *msg) override {
+    void handleMessage(cMessage *msg) override
+    {
         delete msg;
     }
 
-    virtual void refreshDisplay() const override
+    void refreshDisplay() const override
     {
         const_cast<GarbageVisualizer *>(this)->updateLines();
         if (resultsReady)

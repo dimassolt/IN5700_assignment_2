@@ -1,5 +1,8 @@
 package garbage_collection;
 
+
+// Smart garbage can that answers status queries, tracks retry counts, and can escalate collection requests to the cloud.
+ 
 simple GarbageCan
 {
     parameters:

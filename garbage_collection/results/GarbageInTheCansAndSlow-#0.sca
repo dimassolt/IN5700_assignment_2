@@ -1,8 +1,8 @@
 version 3
-run GarbageInTheCansAndSlow-0-20251107-04:54:43-50959
+run GarbageInTheCansAndSlow-0-20251107-15:37:14-27349
 attr configname GarbageInTheCansAndSlow
-attr datetime 20251107-04:54:43
-attr datetimef 20251107-045443
+attr datetime 20251107-15:37:14
+attr datetimef 20251107-153714
 attr experiment GarbageInTheCansAndSlow
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 50959
+attr processid 27349
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -52,6 +52,7 @@ config *.hostToCloudDelay 0.6s
 config *.cloudToHostDelay 0.6s
 config *.canToCloudDelay 0.3s
 config *.cloudToCanDelay 0.3s
+config *.cloudAckDelay 0.6s
 config *.can.hasGarbage false
 config *.anotherCan.hasGarbage false
 config *.can.responseDelay 0.15s
@@ -66,7 +67,6 @@ config *.can.collectDispatchDelay 0.05s
 config *.anotherCan.collectDispatchDelay 0.05s
 config *.connectHostToCloud true
 config *.connectCansToCloud true
-config *.cloudAckDelay 0.6s
 config *.host[0].queryRetryInterval 0.45s
 config *.host[0].maxQueryAttempts 4
 config *.host[0].hostSendsCollect false
@@ -192,10 +192,10 @@ par GarbageCollectionSystem canToCloudDelay 0.3s
 attr unit s
 par GarbageCollectionSystem cloudToCanDelay 0.3s
 attr unit s
-par GarbageCollectionSystem connectHostToCloud true
-par GarbageCollectionSystem connectCansToCloud true
 par GarbageCollectionSystem cloudAckDelay 0.8s
 attr unit s
+par GarbageCollectionSystem connectHostToCloud true
+par GarbageCollectionSystem connectCansToCloud true
 par GarbageCollectionSystem scenarioTitle "\"Cloud-based solution with slow messages\""
 par GarbageCollectionSystem communicationMode "\"GarbageInTheCansAndSlow\""
 par GarbageCollectionSystem smartSlowOutResult 400
@@ -221,14 +221,6 @@ attr mutable ""
 par GarbageCollectionSystem cloudFastOutResult 0
 attr mutable ""
 par GarbageCollectionSystem cloudFastInResult 0
-attr mutable ""
-par GarbageCollectionSystem hostCountersText "\"sentHostFast: 8 rcvdHostFast: 2 sentHostSlow: 2 rcvdHostSlow: 2\""
-attr mutable ""
-par GarbageCollectionSystem canCountersText "\"sentCanFast: 1 rcvdCanFast: 1 numberOfLostCanMsgs: 3\""
-attr mutable ""
-par GarbageCollectionSystem anotherCanCountersText "\"sentAnotherCanFast: 1 rcvdAnotherCanFast: 1 numberOfLostAnotherCanMsgs: 3\""
-attr mutable ""
-par GarbageCollectionSystem cloudCountersText "\"sentCloudFast: 0 rcvdCloudFast: 0 sentCloudSlow: 2 rcvdCloudSlow: 2\""
 attr mutable ""
 par GarbageCollectionSystem hostCollectCount 2
 attr mutable ""

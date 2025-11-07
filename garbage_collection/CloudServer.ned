@@ -1,5 +1,6 @@
 package garbage_collection;
 
+// CloudServer acknowledges collect requests originating from the collector or cans.
 simple CloudServer
 {
     parameters:

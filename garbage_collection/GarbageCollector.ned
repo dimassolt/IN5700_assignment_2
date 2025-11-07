@@ -1,5 +1,8 @@
 package garbage_collection;
 
+
+// Host-side controller that polls garbage cans, tracks retries, and forwards collection requests to the cloud when necessary.
+ 
 simple GarbageCollector
 {
     parameters:

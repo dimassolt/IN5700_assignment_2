@@ -10,6 +10,11 @@ using namespace omnetpp;
 using namespace garbage_collection;
 
 namespace {
+
+/**
+ * Finds and returns a named text figure attached to the parent canvas.
+ * Throws if the figure is missing so that the simulation fails fast.
+ */
 cTextFigure *requireTextFigure(cModule *module, const char *name)
 {
     if (!module)
@@ -17,7 +22,8 @@ cTextFigure *requireTextFigure(cModule *module, const char *name)
 
     cCanvas *canvas = module->getParentModule()->getCanvas();
     if (!canvas)
-        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'", module->getFullPath().c_str(), name);
+        throw cRuntimeError("%s: canvas unavailable while searching for figure '%s'",
+            module->getFullPath().c_str(), name);
 
     std::function<cTextFigure *(cFigure *)> search = [&](cFigure *figure) -> cTextFigure * {
         if (!figure)
@@ -34,9 +40,11 @@ cTextFigure *requireTextFigure(cModule *module, const char *name)
     if (auto *result = search(canvas->getRootFigure()))
         return result;
 
-    throw cRuntimeError("%s: unable to locate text figure '%s'", module->getFullPath().c_str(), name);
+    throw cRuntimeError("%s: unable to locate text figure '%s'",
+        module->getFullPath().c_str(), name);
 }
 
+/** Returns the status response command label for the given can id. */
 const char *kStatusCommandFor(int canId, bool isFull)
 {
     if (canId == 0)
@@ -44,11 +52,13 @@ const char *kStatusCommandFor(int canId, bool isFull)
     return isFull ? "6-YES" : "5-NO";
 }
 
+/** Returns the collect command that targets the given can id. */
 const char *kCollectCommandFor(int canId)
 {
     return canId == 0 ? "7-Collect garbage" : "9-Collect garbage";
 }
 
+/** Increments an integer parameter on the parent module when present. */
 void incrementParentCounter(cModule *module, const char *parName)
 {
     if (!module)
@@ -61,6 +71,7 @@ void incrementParentCounter(cModule *module, const char *parName)
     }
 }
 
+/** Writes an integer parameter on the parent module when present. */
 void setParentIntParameter(cModule *module, const char *parName, int value)
 {
     if (!module)
@@ -70,8 +81,17 @@ void setParentIntParameter(cModule *module, const char *parName, int value)
             parent->par(parName).setIntValue(value);
     }
 }
-}
 
+} // namespace
+
+/**
+ * Represents a garbage can within the smart collection scenario.
+ *
+ * The can cooperates with the GarbageCollector by replying to status
+ * queries, optionally reporting directly to the cloud, and triggering
+ * collect requests after repeated query losses. It keeps detailed counters
+ * that are visualized both locally and on the parent module.
+ */
 class GarbageCan : public cSimpleModule {
   private:
     bool hasGarbage = false;
@@ -101,7 +121,8 @@ class GarbageCan : public cSimpleModule {
         bucket[label]++;
     }
 
-    static std::string describeMessages(const std::map<std::string, long> &bucket, const std::map<std::string, long> *counterpart = nullptr)
+    static std::string describeMessages(const std::map<std::string, long> &bucket,
+        const std::map<std::string, long> *counterpart = nullptr)
     {
         if (bucket.empty())
             return "  none";
@@ -141,6 +162,16 @@ class GarbageCan : public cSimpleModule {
     bool isQueryCommand(const char *command) const
     {
         return strcmp(command, "1-Is the can full?") == 0 || strcmp(command, "4-Is the can full?") == 0;
+    }
+
+    bool isCollectAckCommand(const char *command) const
+    {
+        return strcmp(command, "8-OK") == 0 || strcmp(command, "10-OK") == 0;
+    }
+
+    bool isCloudStatusAckCommand(const char *command) const
+    {
+        return strcmp(command, "cloud-ack") == 0;
     }
 
     void recordSentFast(const char *command)
@@ -217,6 +248,26 @@ class GarbageCan : public cSimpleModule {
         EV_INFO << "Can " << canId << " dispatched collect request to cloud" << endl;
     }
 
+    void handleQuery(GarbagePacket *pkt)
+    {
+        const char *command = pkt->getCommand();
+
+        if (lostQueriesSeen < lostQueryCount) {
+            ++lostQueriesSeen;
+            EV_INFO << "GarbageCan " << canId << " dropping query attempt " << lostQueriesSeen << endl;
+            bubble("Lost Message");
+            recordLostFast(command);
+            delete pkt;
+            return;
+        }
+
+        recordRcvdFast(command);
+        EV_INFO << "GarbageCan " << canId << " processing query command" << endl;
+        dispatchStatus();
+        dispatchCollectIfNeeded();
+        delete pkt;
+    }
+
   protected:
     void initialize() override
     {
@@ -250,29 +301,17 @@ class GarbageCan : public cSimpleModule {
         const char *command = pkt->getCommand();
 
         if (isQueryCommand(command)) {
-            if (lostQueriesSeen < lostQueryCount) {
-                ++lostQueriesSeen;
-                EV_INFO << "GarbageCan " << canId << " dropping query attempt " << lostQueriesSeen << endl;
-                bubble("Lost Message");
-                recordLostFast(command);
-                delete pkt;
-                return;
-            }
-            else {
-                recordRcvdFast(command);
-            }
-
-            EV_INFO << "GarbageCan " << canId << " processing query command" << endl;
-            dispatchStatus();
-            dispatchCollectIfNeeded();
+            handleQuery(pkt);
+            return;
         }
-        else if (strcmp(command, "8-OK") == 0 || strcmp(command, "10-OK") == 0) {
+
+        if (isCollectAckCommand(command)) {
             recordRcvdFast(command);
             EV_INFO << "Cloud acknowledged collect request for can " << canId
                     << ": " << (pkt->getNote() ? pkt->getNote() : "") << endl;
             incrementParentCounter(this, canId == 0 ? "canCollectAckCount" : "anotherCanCollectAckCount");
         }
-        else if (strcmp(command, "cloud-ack") == 0) {
+        else if (isCloudStatusAckCommand(command)) {
             recordRcvdFast(command);
             EV_INFO << "Cloud acknowledged status for can " << canId
                     << ": " << (pkt->getNote() ? pkt->getNote() : "") << endl;
