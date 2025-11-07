@@ -1,6 +1,7 @@
 #include <omnetpp.h>
 #include <algorithm>
 #include <array>
+#include <deque>
 #include <cstring>
 #include <functional>
 #include <map>
@@ -87,6 +88,9 @@ class GarbageCollector : public cSimpleModule {
     std::array<int, 2> canStates {kUnknownState, kUnknownState};
     std::array<int, 2> attemptCounters {0, 0};
     std::array<bool, 2> awaitingCollectAck {false, false};
+    std::array<bool, 2> collectSent {false, false};
+    std::deque<int> collectQueue;
+    bool pendingSecondCanQuery = false;
 
     bool hostSendsCollect = true;
     bool expectCloudAck = true;
@@ -165,6 +169,43 @@ class GarbageCollector : public cSimpleModule {
             if (parent->hasPar("hostCountersText"))
                 parent->par("hostCountersText").setStringValue(text.c_str());
         }
+    }
+
+    bool hasPendingCollectAck() const
+    {
+        return std::any_of(awaitingCollectAck.begin(), awaitingCollectAck.end(), [](bool awaiting) { return awaiting; });
+    }
+
+    void processCollectQueue()
+    {
+        if (!hostSendsCollect || !gate("outCloud")->isConnected())
+            return;
+
+        if (hasPendingCollectAck())
+            return;
+
+        while (!collectQueue.empty()) {
+            int canId = collectQueue.front();
+            collectQueue.pop_front();
+
+            sendCollectRequest(canId);
+
+            if (expectCloudAck)
+                break;
+        }
+    }
+
+    void enqueueCollect(int canId)
+    {
+        if (canId < 0 || canId >= static_cast<int>(collectSent.size()))
+            return;
+
+        if (collectSent[canId])
+            return;
+
+        collectSent[canId] = true;
+        collectQueue.push_back(canId);
+        processCollectQueue();
     }
 
 
@@ -268,8 +309,19 @@ class GarbageCollector : public cSimpleModule {
         if (retryEvents[canId]->isScheduled())
             cancelEvent(retryEvents[canId]);
 
-        if (firstObservation && canId == 0 && attemptCounters[1] == 0)
-            scheduleQuery(1, simTime() + retryInterval);
+        if (isFull && hostSendsCollect && gate("outCloud")->isConnected())
+            enqueueCollect(canId);
+
+        if (firstObservation && canId == 0 && attemptCounters[1] == 0) {
+            const bool shouldDeferSecondQuery = isFull && hostSendsCollect && expectCloudAck
+                && gate("outCloud")->isConnected();
+            if (shouldDeferSecondQuery) {
+                pendingSecondCanQuery = true;
+            }
+            else {
+                scheduleQuery(1, simTime() + retryInterval);
+            }
+        }
 
         finalizeInspection();
     }
@@ -295,13 +347,15 @@ class GarbageCollector : public cSimpleModule {
 
         for (int canId = 0; canId < static_cast<int>(canStates.size()); ++canId) {
             if (canStates[canId] == 1)
-                sendCollectRequest(canId);
+                enqueueCollect(canId);
         }
     }
 
     void sendCollectRequest(int canId)
     {
-        auto *collect = new GarbagePacket("collect-request");
+        collectSent[canId] = true;
+
+        auto *collect = new GarbagePacket("Collect garbage");
         collect->setCommand(kCollectCommandFor(canId));
         collect->setCanId(canId);
         collect->setIsFull(true);
@@ -309,7 +363,7 @@ class GarbageCollector : public cSimpleModule {
         collect->setNote(communicationMode.c_str());
         recordHostSlowSend(collect->getCommand());
         send(collect, "outCloud");
-    incrementParentCounter(this, "hostCollectCount");
+        incrementParentCounter(this, "hostCollectCount");
         EV_INFO << "Sent collect request for can " << canId << " to the cloud" << endl;
 
         if (expectCloudAck)
@@ -327,7 +381,13 @@ class GarbageCollector : public cSimpleModule {
         awaitingCollectAck[canId] = false;
         EV_INFO << "Cloud acknowledgement received for can " << canId
                 << ": " << (pkt->getNote() ? pkt->getNote() : "") << endl;
-    incrementParentCounter(this, "hostCollectAckCount");
+        incrementParentCounter(this, "hostCollectAckCount");
+    processCollectQueue();
+
+        if (pendingSecondCanQuery && canId == 0 && attemptCounters[1] == 0) {
+            pendingSecondCanQuery = false;
+            scheduleQuery(1, simTime() + retryInterval);
+        }
     }
 
   protected:

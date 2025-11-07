@@ -1,8 +1,8 @@
 version 3
-run NoGarbageInTheCans-0-20251107-03:41:02-34229
+run NoGarbageInTheCans-0-20251107-04:53:22-50959
 attr configname NoGarbageInTheCans
-attr datetime 20251107-03:41:02
-attr datetimef 20251107-034102
+attr datetime 20251107-04:53:22
+attr datetimef 20251107-045322
 attr experiment NoGarbageInTheCans
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 34229
+attr processid 50959
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -171,6 +171,7 @@ par GarbageCollectionSystem connectCansToCloud true
 par GarbageCollectionSystem cloudAckDelay 0.6s
 attr unit s
 par GarbageCollectionSystem scenarioTitle "\"No garbage solution\""
+par GarbageCollectionSystem communicationMode "\"NoGarbageInTheCans\""
 par GarbageCollectionSystem smartSlowOutResult 0
 attr mutable ""
 par GarbageCollectionSystem smartSlowInResult 0
@@ -222,7 +223,5 @@ attr mutable ""
 par GarbageCollectionSystem canLostQueriesFinal 3
 attr mutable ""
 par GarbageCollectionSystem anotherCanLostQueriesFinal 3
-attr mutable ""
-par GarbageCollectionSystem messageSummaryText "\"Smartphone did not send collect garbage messages directly to the cloud.\\nCans relied on the smartphone to notify the cloud.\\nSmartphone query attempts before success: can=4, anotherCan=4.\\nLost query deliveries before success:\\n  message 1 lost 3x\\n  message 4 lost 3x\""
 attr mutable ""
 

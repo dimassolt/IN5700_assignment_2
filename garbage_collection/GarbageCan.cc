@@ -204,7 +204,7 @@ class GarbageCan : public cSimpleModule {
         if (!sendCollectToCloud || collectDispatched || !hasGarbage || !gate("outCloud")->isConnected())
             return;
 
-        auto *collect = new GarbagePacket("collect-request");
+        auto *collect = new GarbagePacket("Collect can garbage");
         collect->setCommand(kCollectCommandFor(canId));
         collect->setCanId(canId);
         collect->setIsFull(true);
@@ -212,7 +212,7 @@ class GarbageCan : public cSimpleModule {
         collect->setNote("fog-direct");
         recordSentFast(collect->getCommand());
         sendDelayed(collect, collectDispatchDelay, "outCloud");
-    incrementParentCounter(this, canId == 0 ? "canCollectCount" : "anotherCanCollectCount");
+        incrementParentCounter(this, canId == 0 ? "canCollectCount" : "anotherCanCollectCount");
         collectDispatched = true;
         EV_INFO << "Can " << canId << " dispatched collect request to cloud" << endl;
     }
@@ -233,6 +233,8 @@ class GarbageCan : public cSimpleModule {
             if (parent->hasPar("communicationMode"))
                 communicationMode = parent->par("communicationMode").stdstringValue();
         }
+        if (communicationMode == "GarbageInTheCansAndSlow" || communicationMode == "GarbageInTheCansAndFast")
+            hasGarbage = true;
         if (communicationMode == "GarbageInTheCansAndFast")
             sendCollectToCloud = true;
         else if (communicationMode == "GarbageInTheCansAndSlow")

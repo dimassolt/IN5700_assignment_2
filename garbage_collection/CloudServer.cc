@@ -217,7 +217,7 @@ class CloudServer : public cSimpleModule {
             EV_INFO << "Cloud received collect request for can " << canId
                     << " (note=" << (pkt->getNote() ? pkt->getNote() : "") << ")" << endl;
 
-            auto *ack = new GarbagePacket("collect-ack");
+            auto *ack = new GarbagePacket("collect-OK");
             ack->setCommand(kCollectAckCommandFor(canId));
             ack->setCanId(canId);
             ack->setIsFull(false);

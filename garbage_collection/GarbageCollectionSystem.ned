@@ -20,8 +20,8 @@ network GarbageCollectionSystem
         double cloudToCanDelay @unit(s) = default(0.15s);
         bool connectHostToCloud = default(false);
         bool connectCansToCloud = default(false);
-    double cloudAckDelay @unit(s) = default(0.2s);
-    string scenarioTitle = default("No garbage solution");
+        double cloudAckDelay @unit(s) = default(0.2s);
+        string scenarioTitle = default("No garbage solution");
         string communicationMode = default("default");
         double smartSlowOutResult @mutable = default(0);
         double smartSlowInResult @mutable = default(0);
@@ -39,17 +39,16 @@ network GarbageCollectionSystem
         string canCountersText @mutable = default("Can\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
         string anotherCanCountersText @mutable = default("AnotherCan\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
         string cloudCountersText @mutable = default("Cloud\nFast -> sent: 0, received: 0, lost: 0\nSlow -> sent: 0, received: 0, lost: 0");
-    int hostCollectCount @mutable = default(0);
-    int hostCollectAckCount @mutable = default(0);
-    int hostCan0Attempts @mutable = default(0);
-    int hostCan1Attempts @mutable = default(0);
-    int canCollectCount @mutable = default(0);
-    int anotherCanCollectCount @mutable = default(0);
-    int canCollectAckCount @mutable = default(0);
-    int anotherCanCollectAckCount @mutable = default(0);
-    int canLostQueriesFinal @mutable = default(0);
-    int anotherCanLostQueriesFinal @mutable = default(0);
-    string messageSummaryText @mutable = default("");
+        int hostCollectCount @mutable = default(0);
+        int hostCollectAckCount @mutable = default(0);
+        int hostCan0Attempts @mutable = default(0);
+        int hostCan1Attempts @mutable = default(0);
+        int canCollectCount @mutable = default(0);
+        int anotherCanCollectCount @mutable = default(0);
+        int canCollectAckCount @mutable = default(0);
+        int anotherCanCollectAckCount @mutable = default(0);
+        int canLostQueriesFinal @mutable = default(0);
+        int anotherCanLostQueriesFinal @mutable = default(0);
         @display("bgb=2000,800,#ECFFB3,#dfe6f0,2");
         @figure[roadOuterTop](type=rectangle; pos=140,140; size=1250,2; lineColor=#000000; lineWidth=1; fillColor=#000000; fillOpacity=1);
         @figure[roadOuterBottom](type=rectangle; pos=140,677; size=1250,2; lineColor=#000000; lineWidth=1; fillColor=#000000; fillOpacity=1);
@@ -84,17 +83,16 @@ network GarbageCollectionSystem
         @figure[cloudFastOutValue](type=text; pos=1820,370; text=""; font="Arial,18");
         @figure[cloudFastInLabel](type=text; pos=1470,390; text="Fast connection from others to the Cloud (time it takes) ="; font="Arial,18");
         @figure[cloudFastInValue](type=text; pos=1820,390; text=""; font="Arial,18");
-    @figure[messageSummary](type=text; pos=1470,430; text=""; font="Arial,16"; anchor=nw);
-    @figure[hostCounters](type=text; pos=1025,230; text=""; font="Arial,18"; color=#0000ff; anchor=c);
-    @figure[canCounters](type=text; pos=331,40; text=""; font="Arial,18"; color=#0000ff; anchor=c);
-    @figure[anotherCanCounters](type=text; pos=496,470; text=""; font="Arial,18"; color=#0000ff; anchor=c);
-    @figure[cloudCounters](type=text; pos=1283,260; text=""; font="Arial,18"; color=#0000ff; anchor=c);
+        @figure[hostCounters](type=text; pos=1025,230; text=""; font="Arial,18"; color=#0000ff; anchor=c);
+        @figure[canCounters](type=text; pos=331,40; text=""; font="Arial,18"; color=#0000ff; anchor=c);
+        @figure[anotherCanCounters](type=text; pos=496,470; text=""; font="Arial,18"; color=#0000ff; anchor=c);
+        @figure[cloudCounters](type=text; pos=1283,260; text=""; font="Arial,18"; color=#0000ff; anchor=c);
 
     types:
     submodules:
         host[1]: GarbageCollector {
             parameters:
-                @display("p=1025,320;i=device/pocketpc;r=180");
+                @display("p=1025,251;i=device/pocketpc;r=180");
         }
         can: GarbageCan {
             parameters:
@@ -113,7 +111,7 @@ network GarbageCollectionSystem
         cloud: CloudServer {
             parameters:
                 ackDelay = parent.cloudAckDelay;
-                @display("p=1283,378;i=misc/cloud_l;r=900");
+                @display("p=1240,433;i=misc/cloud_l;r=900");
         }
         visualizer: GarbageVisualizer {
             parameters:
@@ -121,21 +119,21 @@ network GarbageCollectionSystem
                 @display("p=1025,55;i=block/app;b=60,51,,#f0f4ff");
         }
     connections:
-        host[0].outCan --> { delay = parent.canDelay; } --> can.in;
-        can.out --> { delay = parent.canDelay; } --> host[0].inCan;
-        host[0].outAnotherCan --> { delay = parent.canDelay; } --> anotherCan.in;
-        anotherCan.out --> { delay = parent.canDelay; } --> host[0].inAnotherCan;
+        host[0].outCan --> {  delay = parent.canDelay; } --> can.in;
+        can.out --> {  delay = parent.canDelay; } --> host[0].inCan;
+        host[0].outAnotherCan --> {  delay = parent.canDelay; } --> anotherCan.in;
+        anotherCan.out --> {  delay = parent.canDelay; } --> host[0].inAnotherCan;
 
         if (connectHostToCloud) {
-            host[0].outCloud --> { delay = parent.hostToCloudDelay; } --> cloud.inHost;
-            cloud.outHost --> { delay = parent.cloudToHostDelay; } --> host[0].inCloud;
+            host[0].outCloud --> {  delay = parent.hostToCloudDelay; } --> cloud.inHost;
+            cloud.outHost --> {  delay = parent.cloudToHostDelay; } --> host[0].inCloud;
         }
 
         if (connectCansToCloud) {
-            can.outCloud --> { delay = parent.canToCloudDelay; } --> cloud.inCan[0];
-            cloud.outCan[0] --> { delay = parent.cloudToCanDelay; } --> can.inCloud;
+            can.outCloud --> {  delay = parent.canToCloudDelay; } --> cloud.inCan[0];
+            cloud.outCan[0] --> {  delay = parent.cloudToCanDelay; } --> can.inCloud;
 
-            anotherCan.outCloud --> { delay = parent.canToCloudDelay; } --> cloud.inCan[1];
-            cloud.outCan[1] --> { delay = parent.cloudToCanDelay; } --> anotherCan.inCloud;
+            anotherCan.outCloud --> {  delay = parent.canToCloudDelay; } --> cloud.inCan[1];
+            cloud.outCan[1] --> {  delay = parent.cloudToCanDelay; } --> anotherCan.inCloud;
         }
 }
