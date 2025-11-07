@@ -17,7 +17,6 @@ The garbage collection model follows a smartphone collector as it polls two garb
 |------|---------|
 | `garbage_collection/` | Assignment 2 sources, C++ modules, NED files, and `omnetpp.ini` configurations |
 | `garbage_collection/results/` | Sample scalar result files for each configuration |
-| `fog/` | Legacy fog/cloud handshake demo |
 | `Makefile` | Convenience wrapper that builds the `assignment_2` executable |
 
 ## Building the project
