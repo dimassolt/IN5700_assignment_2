@@ -1,8 +1,8 @@
 version 3
-run GarbageInTheCansAndFast-0-20251107-04:55:46-50959
+run GarbageInTheCansAndFast-0-20251107-05:29:46-60563
 attr configname GarbageInTheCansAndFast
-attr datetime 20251107-04:55:46
-attr datetimef 20251107-045546
+attr datetime 20251107-05:29:46
+attr datetimef 20251107-052946
 attr experiment GarbageInTheCansAndFast
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network garbage_collection.GarbageCollectionSystem
-attr processid 50959
+attr processid 60563
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -220,13 +220,13 @@ par GarbageCollectionSystem cloudFastOutResult 200
 attr mutable ""
 par GarbageCollectionSystem cloudFastInResult 200
 attr mutable ""
-par GarbageCollectionSystem hostCountersText "\"sentHostFast: 8 rcvdHostFast: 2 sentHostSlow: 0 rcvdHostSlow: 0\""
+par GarbageCollectionSystem hostCountersText "\"sentHostFast: 4 rcvdHostFast: 0 sentHostSlow: 0 rcvdHostSlow: 0\""
 attr mutable ""
-par GarbageCollectionSystem canCountersText "\"sentCanFast: 2 rcvdCanFast: 2 numberOfLostCanMsgs: 3\""
+par GarbageCollectionSystem canCountersText "\"sentCanFast: 0 rcvdCanFast: 0 numberOfLostCanMsgs: 3\""
 attr mutable ""
-par GarbageCollectionSystem anotherCanCountersText "\"sentAnotherCanFast: 2 rcvdAnotherCanFast: 2 numberOfLostAnotherCanMsgs: 3\""
+par GarbageCollectionSystem anotherCanCountersText "\"sentAnotherCanFast: 0 rcvdAnotherCanFast: 0 numberOfLostAnotherCanMsgs: 0\""
 attr mutable ""
-par GarbageCollectionSystem cloudCountersText "\"sentCloudFast: 2 rcvdCloudFast: 2 sentCloudSlow: 0 rcvdCloudSlow: 0\""
+par GarbageCollectionSystem cloudCountersText "\"sentCloudFast: 0 rcvdCloudFast: 0 sentCloudSlow: 0 rcvdCloudSlow: 0\""
 attr mutable ""
 par GarbageCollectionSystem hostCollectCount 0
 attr mutable ""
@@ -234,18 +234,18 @@ par GarbageCollectionSystem hostCollectAckCount 0
 attr mutable ""
 par GarbageCollectionSystem hostCan0Attempts 4
 attr mutable ""
-par GarbageCollectionSystem hostCan1Attempts 4
+par GarbageCollectionSystem hostCan1Attempts 0
 attr mutable ""
-par GarbageCollectionSystem canCollectCount 1
+par GarbageCollectionSystem canCollectCount 0
 attr mutable ""
-par GarbageCollectionSystem anotherCanCollectCount 1
+par GarbageCollectionSystem anotherCanCollectCount 0
 attr mutable ""
-par GarbageCollectionSystem canCollectAckCount 1
+par GarbageCollectionSystem canCollectAckCount 0
 attr mutable ""
-par GarbageCollectionSystem anotherCanCollectAckCount 1
+par GarbageCollectionSystem anotherCanCollectAckCount 0
 attr mutable ""
 par GarbageCollectionSystem canLostQueriesFinal 3
 attr mutable ""
-par GarbageCollectionSystem anotherCanLostQueriesFinal 3
+par GarbageCollectionSystem anotherCanLostQueriesFinal 0
 attr mutable ""
 
